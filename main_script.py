@@ -51,7 +51,7 @@ for n_hidden_units in range(1, n_hidden_units_max+1):
 
     print('\rCurrent model: ' + model_type + ' with ' + str(n_hidden_units) + ' hidden units.')
     ### LOGDIR  ###
-    LOGDIR = './' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
+    LOGDIR = 'gs://encoders-data/' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
     checkpoint_path = LOGDIR + '/checkpoint.ckpt'
 
     ########################################################################################################################
