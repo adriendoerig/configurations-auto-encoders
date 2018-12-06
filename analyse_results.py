@@ -2,14 +2,17 @@ import numpy as np
 import imageio
 import matplotlib.pyplot as plt
 import sys
-from parameters import n_hidden_units_max, im_size
+from parameters import n_hidden_units_max, im_size, model_type
+from progressbar import ProgressBar
 
-sys.setrecursionlimit(1500)  # needed to make the recursion limit higher
+sys.setrecursionlimit(1500)  # needed to make the recursion limit higher (?)
 
+print('loading dataset and simulation results')
 dataset = np.load('./dataset.npy')
-final_losses_order_all = np.load('./final_losses_order_all.npy')
+final_losses_order_all = np.load('./' + model_type +'_final_losses_order_all.npy')
 final_losses_order_all = 2**15-final_losses_order_all # originally, the best configs have low values. Switch this for better visualisation.
 
+print('creating graph for final results.')
 mean_score = np.mean(final_losses_order_all, axis=0)
 
 ind = np.arange(2**15)
@@ -19,7 +22,7 @@ ax.bar(ind, mean_score, color=(3./255, 57./255, 108./255))
 # add some text for labels, title and axes ticks, and save figure
 ax.set_xlabel('configuration IDs')
 ax.set_ylabel('Mean scores')
-plt.savefig('./mean_scores.png')
+plt.savefig('./' + model_type + '_mean_scores.png')
 
 # plot five best and five worst configs
 mean_score_order = mean_score.argsort()
@@ -36,11 +39,13 @@ for index in range(n_samples):
     plt.imshow(sample_image, cmap="binary")
     plt.axis("off")
     plt.title('Worst configs - rank: (1=WORST): ' + str(index))
-plt.savefig('./mean_scores_best_and_worst_configs.png')
+plt.savefig('./' + model_type + '_mean_scores_best_and_worst_configs.png')
 
 # make a cool gif showing the evolution of mean_score as neurons are added to the hidden layer
+print('creating gif of results across networks')
 imgs_for_gif = []
 def plot_for_offset(data):
+    plt.close('all')
     mean_score = np.mean(data, axis=0)
     ind = np.arange(2 ** 15)
     fig, ax = plt.subplots()
@@ -55,4 +60,7 @@ def plot_for_offset(data):
     return image
 
 # make gif
-imageio.mimsave('./mean_scores_evolving.gif', [plot_for_offset(final_losses_order_all[:img+1, :]) for img in range(2**15-1)], fps=4)
+for i in range(1, n_hidden_units_max):
+    print("\r{}/{} ({:.1f}%) ".format(i, n_hidden_units_max, i * 100 / n_hidden_units_max), end="")
+    imgs_for_gif.append(plot_for_offset(final_losses_order_all[:i, :]))
+imageio.mimsave('./' + model_type + '_mean_scores_evolving.gif', imgs_for_gif, fps=4)

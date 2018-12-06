@@ -22,7 +22,7 @@ max_rows, max_cols = 3, 5                       # max number of rows, columns of
 vernier_grids = False                           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 
 ### network params ###
-model_type = 'dense'  # 'dense' = single dense hidden layer. 'conv' = two conv layers followed by a dense layer
+model_type = 'caps'  # 'dense' = single dense hidden layer. 'conv' = two conv layers followed by a dense layer. 'caps' has a conv layer, a primary caps layer and a secondary caps layer.
 
 if model_type is 'dense':
     n_hidden_units_max = 128
@@ -41,6 +41,28 @@ elif model_type is 'conv':
                     "activation": conv_activation_function,
                     }
     n_hidden_units_max = 128
+elif model_type is 'caps':
+    # conv layers
+    activation_function = tf.nn.elu
+    conv1_params = {"filters": 64,
+                    "kernel_size": 11,
+                    "strides": 1,
+                    "padding": "valid",
+                    "activation": activation_function,
+                    }
+    # primary capsules
+    caps1_n_maps = 8  # number of capsules at level 1 of capsules
+    caps1_n_dims = 8  # number of dimension per capsule (note: 8*8=64 to have the same number of neurons as the convnet)
+    conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
+                        "kernel_size": 10,
+                        "strides": 2,
+                        "padding": "valid",
+                        "activation": activation_function,
+                        }
+    # output capsules
+    n_hidden_units_max = 32  # number of secondary capsules (note: 32*8=128 has 2x more neurons than the convnet)
+    caps2_n_dims = 8  # of n dimensions
+    rba_rounds = 3
 
 # learning rate
 learning_rate = .0005

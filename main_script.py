@@ -4,9 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import sys
+from capsule_functions import primary_caps_layer, secondary_caps_layer
 from create_sprite import images_to_sprite, invert_grayscale
 import itertools
-sys.setrecursionlimit(1500)  # need to make the recursion limit higher
+sys.setrecursionlimit(1500)  # need to make the recursion limit higher (?)
 
 ########################################################################################################################
 # Create dataset
@@ -50,7 +51,7 @@ for n_hidden_units in range(1, n_hidden_units_max+1):
 
     print('\rCurrent model: ' + model_type + ' with ' + str(n_hidden_units) + ' hidden units.')
     ### LOGDIR  ###
-    LOGDIR = './' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
+    LOGDIR = './' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
     checkpoint_path = LOGDIR + '/checkpoint.ckpt'
 
     ########################################################################################################################
@@ -65,7 +66,7 @@ for n_hidden_units in range(1, n_hidden_units_max+1):
     tf.summary.image('input', x_image, 6)
 
     if model_type is 'dense':
-        with tf.name_scope('auto_encoder'):
+        with tf.name_scope('dense_auto_encoder'):
             with tf.name_scope('neurons'):
                 X_flat = tf.reshape(X, [-1, im_size[0]*im_size[1]], name='X_flat')
                 tf.summary.histogram('X_flat', X_flat)
@@ -83,19 +84,45 @@ for n_hidden_units in range(1, n_hidden_units_max+1):
                 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
                 training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
     elif model_type is 'conv':
-        with tf.name_scope('auto_encoder'):
+        with tf.name_scope('conv_auto_encoder'):
             with tf.name_scope('neurons'):
                 conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
                 tf.summary.histogram('conv1', conv1)
                 conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params)
                 tf.summary.histogram('conv2', conv2)
-                dense = tf.layers.dense(conv2, n_hidden_units, name='hidden_layer')
+                conv2_flat = tf.reshape(conv2, [-1, int(np.prod(conv2.get_shape()[1:]))], name='conv2_flat')
+                dense = tf.layers.dense(conv2_flat, n_hidden_units, name='dense_layer')
                 tf.summary.histogram('dense', dense)
                 X_reconstructed = tf.layers.dense(dense, im_size[0]*im_size[1], name='reconstruction')
                 tf.summary.histogram('X_reconstructed', X_reconstructed)
                 X_reconstructed_image = tf.reshape(X_reconstructed, [-1, im_size[0], im_size[1], 1])
                 tf.summary.image('reconstruction', X_reconstructed_image, 6)
             with tf.name_scope('reconstruction_loss'):
+                X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
+                all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed, X_flat, name='square_diffs'), axis=1, name='losses_per_image')
+                loss = tf.reduce_sum(all_losses, name='total_loss')
+                tf.summary.scalar('loss', loss)
+            with tf.name_scope('optimizer_and_training'):
+                optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+                training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
+    elif model_type is 'caps':
+        with tf.name_scope('caps_auto_encoder'):
+            with tf.name_scope('neurons'):
+                conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
+                tf.summary.histogram('conv1', conv1)
+                conv1_width = int((im_size[0] - conv1_params["kernel_size"]) / conv1_params["strides"] + 1)
+                conv1_height = int((im_size[1] - conv1_params["kernel_size"]) / conv1_params["strides"] + 1)
+                caps1_n_caps = int((caps1_n_maps * int((conv1_width  - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1) *
+                                                   int((conv1_height - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1)))
+                caps1 = primary_caps_layer(conv1, caps1_n_caps, caps1_n_dims, **conv_caps_params)
+                caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, n_hidden_units, caps2_n_dims, rba_rounds)
+                caps2_flat = tf.reshape(caps2, [-1, n_hidden_units*caps2_n_dims])
+                X_reconstructed = tf.layers.dense(caps2_flat, im_size[0] * im_size[1], name='reconstruction')
+                tf.summary.histogram('X_reconstructed', X_reconstructed)
+                X_reconstructed_image = tf.reshape(X_reconstructed, [-1, im_size[0], im_size[1], 1])
+                tf.summary.image('reconstruction', X_reconstructed_image, 6)
+            with tf.name_scope('reconstruction_loss'):
+                X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
                 all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed, X_flat, name='square_diffs'), axis=1, name='losses_per_image')
                 loss = tf.reduce_sum(all_losses, name='total_loss')
                 tf.summary.scalar('loss', loss)
@@ -252,4 +279,4 @@ for n_hidden_units in range(1, n_hidden_units_max+1):
     plt.savefig(LOGDIR+'/worst5.png')
 
 # save final results (a matrix with the order of best configurations for each network type) and plot it
-np.save('final_losses_order_all', final_losses_order_all)
+np.save(model_type + '_final_losses_order_all', final_losses_order_all)
