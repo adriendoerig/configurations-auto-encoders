@@ -1,6 +1,4 @@
 import tensorflow as tf
-import os
-import random
 
 ### stimulus params ###
 im_size = (78, 130)                             # size of full image
@@ -22,7 +20,7 @@ max_rows, max_cols = 3, 5                       # max number of rows, columns of
 vernier_grids = False                           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 
 ### network params ###
-model_type = 'caps'  # 'dense' = single dense hidden layer. 'conv' = two conv layers followed by a dense layer. 'caps' has a conv layer, a primary caps layer and a secondary caps layer.
+model_type = 'dense'  # 'dense' = single dense hidden layer. 'conv' = two conv layers followed by a dense layer. 'caps' has a conv layer, a primary caps layer and a secondary caps layer.
 
 if model_type is 'dense':
     n_hidden_units_max = 128

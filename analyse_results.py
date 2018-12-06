@@ -22,6 +22,7 @@ ax.bar(ind, mean_score, color=(3./255, 57./255, 108./255))
 # add some text for labels, title and axes ticks, and save figure
 ax.set_xlabel('configuration IDs')
 ax.set_ylabel('Mean scores')
+plt.title('Current mean over networks 1 -> ' + str(n_hidden_units_max))
 plt.savefig('./' + model_type + '_mean_scores.png')
 
 # plot five best and five worst configs
@@ -53,6 +54,7 @@ def plot_for_offset(data):
     ax.set_xlabel('configuration IDs')
     ax.set_ylabel('Mean scores')
     ax.set_ylim(0, 2**15)
+    plt.title('Current mean over networks 1 -> ' + str(data.shape[0]))
     # Used to return the plot as an image array
     fig.canvas.draw()  # draw the canvas, cache the renderer
     image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
@@ -60,7 +62,7 @@ def plot_for_offset(data):
     return image
 
 # make gif
-for i in range(1, n_hidden_units_max):
+for i in range(1, 2):
     print("\r{}/{} ({:.1f}%) ".format(i, n_hidden_units_max, i * 100 / n_hidden_units_max), end="")
     imgs_for_gif.append(plot_for_offset(final_losses_order_all[:i, :]))
 imageio.mimsave('./' + model_type + '_mean_scores_evolving.gif', imgs_for_gif, fps=4)
