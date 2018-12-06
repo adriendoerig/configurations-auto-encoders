@@ -3,9 +3,13 @@ import imageio
 import matplotlib.pyplot as plt
 import sys
 from parameters import n_hidden_units_max, im_size, model_type
-from progressbar import ProgressBar
 
 sys.setrecursionlimit(1500)  # needed to make the recursion limit higher (?)
+
+if model_type is 'conv':
+    chosen_n_units = range(8, n_hidden_units_max+1, 4)  # takes too long to compute everything
+else:
+    chosen_n_units = range(1, n_hidden_units_max+1)
 
 print('loading dataset and simulation results')
 dataset = np.load('./dataset.npy')
@@ -45,6 +49,8 @@ plt.savefig('./' + model_type + '_mean_scores_best_and_worst_configs.png')
 # make a cool gif showing the evolution of mean_score as neurons are added to the hidden layer
 print('creating gif of results across networks')
 imgs_for_gif = []
+
+
 def plot_for_offset(data):
     plt.close('all')
     mean_score = np.mean(data, axis=0)
@@ -61,8 +67,9 @@ def plot_for_offset(data):
     image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     return image
 
+
 # make gif
-for i in range(1, 2):
-    print("\r{}/{} ({:.1f}%) ".format(i, n_hidden_units_max, i * 100 / n_hidden_units_max), end="")
+for i in range(len(chosen_n_units)):
+    print("\r{}/{} ({:.1f}%) ".format(i, len(chosen_n_units), i * 100 / len(chosen_n_units)), end="")
     imgs_for_gif.append(plot_for_offset(final_losses_order_all[:i, :]))
 imageio.mimsave('./' + model_type + '_mean_scores_evolving.gif', imgs_for_gif, fps=4)

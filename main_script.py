@@ -47,7 +47,12 @@ if show_samples:
 # we do a loop over many diffent number of hidden units
 final_losses_order_all = np.zeros(shape=(n_hidden_units_max, 2**15))
 
-for n_hidden_units in range(1, n_hidden_units_max+1):
+if model_type is 'conv':
+    chosen_n_units = range(8, n_hidden_units_max+1, 4)  # takes too long to compute everything
+else:
+    chosen_n_units = range(1, n_hidden_units_max+1)
+
+for n_hidden_units in chosen_n_units:
 
     print('\rCurrent model: ' + model_type + ' with ' + str(n_hidden_units) + ' hidden units.')
     ### LOGDIR  ###

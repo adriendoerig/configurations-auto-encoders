@@ -20,7 +20,7 @@ max_rows, max_cols = 3, 5                       # max number of rows, columns of
 vernier_grids = False                           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 
 ### network params ###
-model_type = 'dense'  # 'dense' = single dense hidden layer. 'conv' = two conv layers followed by a dense layer. 'caps' has a conv layer, a primary caps layer and a secondary caps layer.
+model_type = 'conv'  # 'dense' = single dense hidden layer. 'conv' = two conv layers followed by a dense layer. 'caps' has a conv layer, a primary caps layer and a secondary caps layer.
 
 if model_type is 'dense':
     n_hidden_units_max = 128
@@ -58,7 +58,7 @@ elif model_type is 'caps':
                         "activation": activation_function,
                         }
     # output capsules
-    n_hidden_units_max = 32  # number of secondary capsules (note: 32*8=128 has 2x more neurons than the convnet)
+    n_hidden_units_max = 16  # number of secondary capsules (note: 16*8=128 = Nbr of neurons than the convnet)
     caps2_n_dims = 8  # of n dimensions
     rba_rounds = 3
 
@@ -67,5 +67,5 @@ learning_rate = .0005
 
 ### training opts ###
 batch_size = 64
-n_epochs = 20
+n_epochs = 10
 
