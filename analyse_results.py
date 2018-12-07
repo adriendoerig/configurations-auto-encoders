@@ -14,15 +14,22 @@ else:
 print('loading dataset and simulation results')
 dataset = np.load('./dataset.npy')
 final_losses_order_all = np.load('./' + model_type +'_final_losses_order_all.npy')
+
+# scores count the avg. position of a configuration: if it has the lowest loss->2**15, if is has the highest loss->1.
+# note that the higher the score, the better the performance (this is easier for visualizing the result graphs).
+# each line i corresponds to the mean score over all models with n_hidden_units <= i+1 (e.g. line 0 contains the scores
+# for the net with a single hidden unit and line 2 contains the avg scores over models with 1, 2 & 3 hidden units.
+print('computing mean scores over models with increasing n_hidden_units')
 if not os.path.exists('./scores.npy'):
     scores = np.zeros(shape=(final_losses_order_all.shape[0], 2**15))
     for i in range(final_losses_order_all.shape[0]):
         for j in range(2**15):
-            scores[i:, j] += final_losses_order_all[:, j].index(i)
+            scores[i:, j] += np.squeeze(
+                np.tile(np.where(j == final_losses_order_all[i, :]), final_losses_order_all.shape[0] - i))
+        scores[i, :] /= i + 1
+    scores = 2**15+1-scores # originally, the best configs have low values. Switch this for better visualisation.
 else:
     scores = np.load('scores.npy')
-
-final_losses_order_all = 2**15-final_losses_order_all # originally, the best configs have low values. Switch this for better visualisation.
 
 print('creating graph for final results.')
 mean_score = np.mean(final_losses_order_all, axis=0)
