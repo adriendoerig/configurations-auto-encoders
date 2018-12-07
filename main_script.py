@@ -47,10 +47,10 @@ if show_samples:
 # we do a loop over many diffent number of hidden units
 final_losses_order_all = np.zeros(shape=(n_hidden_units_max, 2**15))
 
-if model_type is 'conv':
-    chosen_n_units = range(8, n_hidden_units_max+1, 4)  # takes too long to compute everything
+if model_type is 'caps':  # we don't use ALL n_hidden_units. Here, choose which ones to use.
+    chosen_n_units = range(1, n_hidden_units_max + 1)
 else:
-    chosen_n_units = range(1, n_hidden_units_max+1)
+    chosen_n_units = range(8, n_hidden_units_max + 1, 4)
 
 for n_hidden_units in chosen_n_units:
 
