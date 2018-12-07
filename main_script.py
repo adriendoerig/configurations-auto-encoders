@@ -244,8 +244,19 @@ for n_hidden_units in chosen_n_units:
         # reload dataset so it is always in the same order
         dataset = np.load('./dataset.npy')
 
-        # get all post-training losses
-        final_losses,  final_reconstructions = sess.run([all_losses, X_reconstructed_image], feed_dict={X: dataset+ np.random.normal(0, late_noise, size=dataset.shape)})
+        n_trials = 10
+        final_losses = np.zeros(shape=(n_trials, 2**15))
+        final_reconstructions = np.zeros(shape=(2**15, im_size[0], im_size[1], 1))
+        for trial in range(n_trials):
+            for batch in range(n_batches):
+                # get all post-training losses
+                final_losses[trial, batch:batch+batch_size],  final_reconstructions[batch:batch+batch_size, :, :, :] \
+                    = sess.run([all_losses, X_reconstructed_image],
+                               feed_dict={X: dataset[batch:batch+batch_size, :, :, :] + np.random.normal(0, late_noise, size=dataset[batch:batch+batch_size, :, :, :].shape)})
+
+    print(final_losses.shape)
+    final_losses = np.mean(final_losses, axis=0)
+    print(final_losses.shape)
 
     # get indices of the configurations from lowest to highest loss
     final_losses_order = final_losses.argsort()
