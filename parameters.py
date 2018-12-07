@@ -20,9 +20,19 @@ max_rows, max_cols = 3, 5                       # max number of rows, columns of
 vernier_grids = False                           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
 
 ### network params ###
-model_type = 'conv' # 'dense' = single dense hidden layer. 'conv' = two conv layers followed by a dense layer. 'caps' has a conv layer, a primary caps layer and a secondary caps layer.
+# 'dense' = single dense hidden layer.
+# 'dense_large' = two fc encoder layers, one bottleneck layer and two fc decoder layers
+# 'conv' = two conv layers followed by a dense layer.
+# 'caps' = a conv layer, a primary caps layer and a secondary caps layer.
+# 'conv-deconv' = 3 conv laywer + pooling, then a dense bottleneck, then 3 upscaling layer as a decoder (no real deconv)
+
+model_type = 'conv'
 
 if model_type is 'dense':
+    n_hidden_units_max = 128
+elif model_type is 'dense_large':
+    n_neurons1 = 50
+    n_neurons2 = 50
     n_hidden_units_max = 128
 elif model_type is 'conv':
     conv_activation_function = tf.nn.elu
@@ -61,6 +71,16 @@ elif model_type is 'caps':
     n_hidden_units_max = 16  # number of secondary capsules (note: 16*8=128 = Nbr of neurons than the convnet)
     caps2_n_dims = 8  # of n dimensions
     rba_rounds = 3
+elif model_type is 'conv_deconv':
+    # cf https://github.com/mchablani/deep-learning/blob/master/autoencoder/Convolutional_Autoencoder.ipynb
+    bottleneck_features_max = 8
+elif model_type is 'VAE':
+    # cf. https://danijar.com/building-variational-auto-encoders-in-tensorflow/
+    # and https://colab.research.google.com/drive/1Wl78KHPzQ2Q253Rob5W1o0bd8nu9DZel#scrollTo=zaCO7S0-_KNn&forceEdit=true&offline=true&sandboxMode=true
+    n_neurons1 = 50
+    n_neurons2 = 50
+    bottleneck_features_max = 8
+    beta = 1  # 1 -> no disentaglement >1 -> disentanglement
 
 # learning rate
 learning_rate = .0001

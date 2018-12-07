@@ -747,6 +747,7 @@ if __name__ == "__main__":
     other_shape_ID = 2  # there will be squares and this shape in the array
     rufus = StimMaker((50, 83), 16, 1)
     stim_matrix = numpy.random.randint(2, size=(3,5))*(other_shape_ID-1) + 1
+    stim_matrix[1,2] = 1
 
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
     rufus.showBatch(1, stim_matrix, n_shapes=1, showPatch=False, showVernier=False, showConfig=stim_matrix, noiseLevel=noise_level, normalize=normalize_images, random_size=random_size, vernierLabelEncoding='lr_01', fixed_position=fixed_stim_position)
