@@ -1,7 +1,7 @@
 import numpy as np
 import imageio
 import matplotlib.pyplot as plt
-import sys
+import sys, os
 from parameters import n_hidden_units_max, im_size, model_type
 
 sys.setrecursionlimit(1500)  # needed to make the recursion limit higher (?)
@@ -14,6 +14,14 @@ else:
 print('loading dataset and simulation results')
 dataset = np.load('./dataset.npy')
 final_losses_order_all = np.load('./' + model_type +'_final_losses_order_all.npy')
+if not os.path.exists('./scores.npy'):
+    scores = np.zeros(shape=(final_losses_order_all.shape[0], 2**15))
+    for i in range(final_losses_order_all.shape[0]):
+        for j in range(2**15):
+            scores[i:, j] += final_losses_order_all[:, j].index(i)
+else:
+    scores = np.load('scores.npy')
+
 final_losses_order_all = 2**15-final_losses_order_all # originally, the best configs have low values. Switch this for better visualisation.
 
 print('creating graph for final results.')

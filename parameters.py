@@ -63,7 +63,7 @@ elif model_type is 'caps':
     rba_rounds = 3
 
 # learning rate
-learning_rate = .00005
+learning_rate = .0001
 
 ### training opts ###
 batch_size = 64

@@ -216,7 +216,7 @@ for n_hidden_units in chosen_n_units:
                 np.random.shuffle(dataset)
                 for batch in range(n_batches):
                     # get new batch
-                    batch_data = dataset[batch:batch+batch_size, :, :, :] + np.random.normal(0, late_noise, size=dataset[batch:batch+batch_size, :, :, :].shape)
+                    batch_data = dataset[batch*batch_size:batch*batch_size+batch_size, :, :, :] + np.random.normal(0, late_noise, size=dataset[batch*batch_size:batch*batch_size+batch_size, :, :, :].shape)
 
                     # Run the training operation and measure the loss:
                     _, loss_train, summ = sess.run([training_op, loss, summary], feed_dict={X: batch_data})
@@ -250,18 +250,16 @@ for n_hidden_units in chosen_n_units:
         for trial in range(n_trials):
             for batch in range(n_batches):
                 # get all post-training losses
-                final_losses[trial, batch:batch+batch_size],  final_reconstructions[batch:batch+batch_size, :, :, :] \
+                final_losses[trial, batch*batch_size:batch*batch_size+batch_size],  final_reconstructions[batch*batch_size:batch*batch_size+batch_size, :, :, :] \
                     = sess.run([all_losses, X_reconstructed_image],
-                               feed_dict={X: dataset[batch:batch+batch_size, :, :, :] + np.random.normal(0, late_noise, size=dataset[batch:batch+batch_size, :, :, :].shape)})
+                               feed_dict={X: dataset[batch*batch_size:batch*batch_size+batch_size, :, :, :] + np.random.normal(0, late_noise, size=dataset[batch*batch_size:batch*batch_size+batch_size, :, :, :].shape)})
 
-    print(final_losses.shape)
     final_losses = np.mean(final_losses, axis=0)
-    print(final_losses.shape)
 
     # get indices of the configurations from lowest to highest loss
     final_losses_order = final_losses.argsort()
     final_losses_order_all[n_hidden_units-1, :] = final_losses_order  # the -1 because the loop goes from 1->n_hidden_units_max, but indexing starts at 0
-
+    print(final_losses[final_losses_order])
     # show the first few best images
     n_samples = 5
     plt.figure(figsize=(n_samples * 2, 3))
@@ -270,12 +268,12 @@ for n_hidden_units in chosen_n_units:
         sample_image = dataset[final_losses_order[index], :, :, 0].reshape(im_size[0], im_size[1])
         plt.imshow(sample_image, cmap="binary")
         plt.axis("off")
-        plt.title('Configuration - rank (1=BEST): ' + str(index))
+        plt.title(('Rank: ' + str(index)))
         plt.subplot(2, n_samples, n_samples + index + 1)
         sample_image = final_reconstructions[final_losses_order[index], :, :, 0].reshape(im_size[0], im_size[1])
         plt.imshow(sample_image, cmap="binary")
         plt.axis("off")
-        plt.title('Reconstruction - rank (1=BEST): ' + str(index))
+        plt.title('Avg. loss: ' + str(int(final_losses[final_losses_order[index]])))
     plt.savefig(LOGDIR+'/best5.png')
 
     # show the first few worst images
@@ -286,13 +284,14 @@ for n_hidden_units in chosen_n_units:
         sample_image = dataset[final_losses_order[-(index+1)], :, :, 0].reshape(im_size[0], im_size[1])
         plt.imshow(sample_image, cmap="binary")
         plt.axis("off")
-        plt.title('Configuration - rank: (1=WORST): ' + str(index))
+        plt.title('Rank: ' + str(2**15-index))
         plt.subplot(2, n_samples, n_samples + index + 1)
         sample_image = final_reconstructions[final_losses_order[-(index+1)], :, :, 0].reshape(im_size[0], im_size[1])
         plt.imshow(sample_image, cmap="binary")
         plt.axis("off")
-        plt.title('Reconstruction - rank: (1=WORST): ' + str(index))
+        plt.title('Avg. loss: ' + str(int(final_losses[final_losses_order[-(index+1)]])))
     plt.savefig(LOGDIR+'/worst5.png')
 
-# save final results (a matrix with the order of best configurations for each network type) and plot it
+# save final results (a matrix with the order of best configurations for each network type - for example if a row is
+# [2 0 1], it means that network 2 had the lowest loss, then net 0 and finally net 1). Analysis in analyse_results.py.
 np.save(model_type + '_final_losses_order_all', final_losses_order_all)
