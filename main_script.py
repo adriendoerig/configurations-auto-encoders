@@ -45,7 +45,7 @@ if show_samples:
 # we will do a loop over many diffent number of hidden units
 if model_type is 'caps':  # we don't use ALL n_hidden_units. Here, choose which ones to use.
     chosen_n_units = range(1, n_hidden_units_max + 1)
-elif model_type is ('conv_deconv' or 'VAE'):
+elif model_type is 'large_conv':
     chosen_n_units = range(1, bottleneck_features_max + 1)
 else:
     chosen_n_units = range(8, n_hidden_units_max + 1, 4)
@@ -99,7 +99,7 @@ for n_hidden_units in chosen_n_units:
                     tf.summary.histogram('dense1', dense1)
                     dense2 = tf.layers.dense(dense1, n_neurons2, name='dense2')
                     tf.summary.histogram('dense2', dense2)
-                    encoded = tf.layers.dense(dense2, chosen_n_units, name='encoded')
+                    encoded = tf.layers.dense(dense2, n_hidden_units, name='encoded')
                     tf.summary.histogram('encoded', encoded)
                 with tf.name_scope('decoder'):
                     dense3 = tf.layers.dense(encoded, n_neurons2, name='dense3')
@@ -139,7 +139,36 @@ for n_hidden_units in chosen_n_units:
             with tf.name_scope('optimizer_and_training'):
                 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
                 training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
-    elif model_type is 'caps':
+    elif model_type is 'large_conv':
+        with tf.name_scope('caps_auto_encoder'):
+            with tf.name_scope('neurons'):
+                with tf.name_scope('encoder'):
+                    conv1 = tf.layers.conv2d(inputs=X, filters=16, kernel_size=(5, 5), padding='same', activation=tf.nn.relu, name='conv1')  # Now 50x83x16
+                    maxpool1 = tf.layers.max_pooling2d(conv1, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool1')  # Now 25x42x16
+                    conv2 = tf.layers.conv2d(inputs=maxpool1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv2')  # Now 25x42x8
+                    maxpool2 = tf.layers.max_pooling2d(conv2, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool2')  # Now 13x21/4x8
+                    conv3 = tf.layers.conv2d(inputs=maxpool2, filters=n_hidden_units, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv3')  # Now 13x21xn_hidden_units
+                    encoded = tf.layers.max_pooling2d(conv3, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool3_encoded')  # Now 7x11xn_hidden_units
+                with tf.name_scope('decoder'):
+                    upsample1 = tf.image.resize_images(encoded, size=(13, 21), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR, name='upsample1')  # Now 13x21xn_hidden_units
+                    conv4 = tf.layers.conv2d(inputs=upsample1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv4')  # Now 13x21x8
+                    upsample2 = tf.image.resize_images(conv4, size=(25, 42), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR, name='upsample2')  # Now 25x42x8
+                    conv5 = tf.layers.conv2d(inputs=upsample2, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv5')  # Now 25x42x8
+                    upsample3 = tf.image.resize_images(conv5, size=(50, 83), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR, name='upsample3')  # Now 50x83x8
+                    conv6 = tf.layers.conv2d(inputs=upsample3, filters=16, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv6')  # Now 50x83x16
+                    logits = tf.layers.conv2d(inputs=conv6, filters=1, kernel_size=(3, 3), padding='same', activation=None, name='logits')  # Now 50x83x1
+                    X_reconstructed = tf.nn.sigmoid(logits, name='X_reconstructed')  # Pass logits through sigmoid to get reconstructed image
+                    X_reconstructed_image = tf.reshape(X_reconstructed, [-1, im_size[0], im_size[1], 1])
+                    tf.summary.image('reconstruction', X_reconstructed_image, 6)
+            with tf.name_scope('reconstruction_loss'):
+                X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
+                all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed, X_flat, name='square_diffs'), axis=1, name='losses_per_image')
+                loss = tf.reduce_mean(all_losses, name='loss')
+                tf.summary.scalar('loss', loss)
+            with tf.name_scope('optimizer_and_training'):
+                optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
+                training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
+    elif model_type is ('caps' or 'caps_large'):
         with tf.name_scope('caps_auto_encoder'):
             with tf.name_scope('neurons'):
                 conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
@@ -151,7 +180,12 @@ for n_hidden_units in chosen_n_units:
                 caps1 = primary_caps_layer(conv1, caps1_n_caps, caps1_n_dims, **conv_caps_params)
                 caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, n_hidden_units, caps2_n_dims, rba_rounds)
                 caps2_flat = tf.reshape(caps2, [-1, n_hidden_units*caps2_n_dims])
-                X_reconstructed = tf.layers.dense(caps2_flat, im_size[0] * im_size[1], name='reconstruction')
+                if model_type is 'caps_large':
+                    dense1 = tf.layers.dense(caps2_flat, n_neurons1, name='decoder_hidden1')
+                    dense2 = tf.layers.dense(dense1, n_neurons2, name='decoder_hidden2')
+                    X_reconstructed = tf.layers.dense(dense2, im_size[0] * im_size[1], name='reconstruction')
+                else:
+                    X_reconstructed = tf.layers.dense(caps2_flat, im_size[0] * im_size[1], name='reconstruction')
                 tf.summary.histogram('X_reconstructed', X_reconstructed)
                 X_reconstructed_image = tf.reshape(X_reconstructed, [-1, im_size[0], im_size[1], 1])
                 tf.summary.image('reconstruction', X_reconstructed_image, 6)
@@ -159,49 +193,6 @@ for n_hidden_units in chosen_n_units:
                 X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
                 all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed, X_flat, name='square_diffs'), axis=1, name='losses_per_image')
                 loss = tf.reduce_sum(all_losses, name='total_loss')
-                tf.summary.scalar('loss', loss)
-            with tf.name_scope('optimizer_and_training'):
-                optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-                training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
-    elif model_type is 'conv-deconv':
-        with tf.name_scope('caps_auto_encoder'):
-            with tf.name_scope('neurons'):
-                with tf.name_scope('encoder'):
-                    conv1 = tf.layers.conv2d(inputs=X, filters=16, kernel_size=(5, 5), padding='same', activation=tf.nn.relu, name='conv1')
-                    # Now 50x83x16
-                    maxpool1 = tf.layers.max_pooling2d(conv1, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool1')
-                    # Now 25x42x16
-                    conv2 = tf.layers.conv2d(inputs=maxpool1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv2')
-                    # Now 25x42x8
-                    maxpool2 = tf.layers.max_pooling2d(conv2, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool2')
-                    # Now 13x21/4x8
-                    conv3 = tf.layers.conv2d(inputs=maxpool2, filters=chosen_n_units, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv3')
-                    # Now 13x21xbottleneck_features_max
-                    encoded = tf.layers.max_pooling2d(conv3, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool3_encoded')
-                    # Now 7x11xbottleneck_features_max
-                with tf.name_scope('decoder'):
-                    upsample1 = tf.image.resize_images(encoded, size=(13, 21), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR, name='upsample1')
-                    # Now 13x21xbottleneck_features_max
-                    conv4 = tf.layers.conv2d(inputs=upsample1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv4')
-                    # Now 13x21x8
-                    upsample2 = tf.image.resize_images(conv4, size=(25, 42), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR, name='upsample2')
-                    # Now 25x42x8
-                    conv5 = tf.layers.conv2d(inputs=upsample2, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv5')
-                    # Now 25x42x8
-                    upsample3 = tf.image.resize_images(conv5, size=(50, 83), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR, name='upsample3')
-                    # Now 50x83x8
-                    conv6 = tf.layers.conv2d(inputs=upsample3, filters=16, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv6')
-                    # Now 50x83x16
-                    logits = tf.layers.conv2d(inputs=conv6, filters=1, kernel_size=(3, 3), padding='same', activation=None, name='logits')
-                    # Now 50x83x1
-                    # Pass logits through sigmoid to get reconstructed image
-                    X_reconstructed = tf.nn.sigmoid(logits, name='X_reconstructed')
-                    X_reconstructed_image = tf.reshape(X_reconstructed, [-1, im_size[0], im_size[1], 1])
-                    tf.summary.image('reconstruction', X_reconstructed_image, 6)
-            with tf.name_scope('reconstruction_loss'):
-                X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
-                all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed, X_flat, name='square_diffs'), axis=1, name='losses_per_image')
-                loss = tf.reduce_mean(all_losses, name='loss')
                 tf.summary.scalar('loss', loss)
             with tf.name_scope('optimizer_and_training'):
                 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
@@ -247,9 +238,9 @@ for n_hidden_units in chosen_n_units:
 
         # Define the model.
         with tf.name_scope('prior'):
-            prior = make_prior(code_size=bottleneck_features_max)
+            prior = make_prior(code_size=n_hidden_units)
         with tf.name_scope('encoder'):
-            posterior = make_encoder(X, code_size=bottleneck_features_max)
+            posterior = make_encoder(X, code_size=n_hidden_units)
             code = posterior.sample()
         # Define the loss.
         with tf.name_scope('loss & optimizer'):

@@ -49,7 +49,10 @@ elif model_type is 'conv':
                     "activation": conv_activation_function,
                     }
     n_hidden_units_max = 128
-elif model_type is 'caps':
+elif model_type is 'large_conv':
+    # cf https://github.com/mchablani/deep-learning/blob/master/autoencoder/Convolutional_Autoencoder.ipynb
+    bottleneck_features_max = 8
+elif model_type is ('caps' or 'large_caps'):
     # conv layers
     activation_function = tf.nn.elu
     conv1_params = {"filters": 64,
@@ -71,15 +74,15 @@ elif model_type is 'caps':
     n_hidden_units_max = 16  # number of secondary capsules (note: 16*8=128 = Nbr of neurons than the convnet)
     caps2_n_dims = 8  # of n dimensions
     rba_rounds = 3
-elif model_type is 'conv_deconv':
-    # cf https://github.com/mchablani/deep-learning/blob/master/autoencoder/Convolutional_Autoencoder.ipynb
-    bottleneck_features_max = 8
+    if model_type is 'large_caps':
+        n_neurons1 = 50
+        n_neurons2 = 50
 elif model_type is 'VAE':
     # cf. https://danijar.com/building-variational-auto-encoders-in-tensorflow/
     # and https://colab.research.google.com/drive/1Wl78KHPzQ2Q253Rob5W1o0bd8nu9DZel#scrollTo=zaCO7S0-_KNn&forceEdit=true&offline=true&sandboxMode=true
     n_neurons1 = 50
     n_neurons2 = 50
-    bottleneck_features_max = 8
+    n_hidden_units_max = 128
     beta = 1  # 1 -> no disentaglement >1 -> disentanglement
 
 # learning rate
