@@ -22,7 +22,7 @@ stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generatio
 if not os.path.exists('./dataset.npy'):
     flat_matrices = np.array(list(itertools.product([0, 1], repeat=3 * 5)))
     matrices = np.reshape(flat_matrices, [-1, 3, 5])
-    matrices[:, 1, 2] = 1
+    # matrices[:, 1, 2] = 1
     dataset = np.zeros(shape=(matrices.shape[0], im_size[0], im_size[1], 1))  # need fourth dimension for tensorflow
 
     for i in range(2**15):
