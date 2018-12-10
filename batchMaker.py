@@ -342,276 +342,6 @@ class StimMaker:
         plt.show()
 
 
-    def makeBatchOld(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1, normalize=False, fixed_position=None):
-
-        # group_last_types attributes the same label to the last n shapeTypes
-        shapeLabels = numpy.arange(1, len(shapeTypes)+1)
-        shapeLabels[-group_last_shapes:] = shapeLabels[-group_last_shapes]
-        batchImages = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
-        batchLabels = numpy.zeros(batchSize, dtype=numpy.float32)
-
-        for n in range(batchSize):
-
-            if random.uniform(0,1) < 0.25:
-                batchImages[n,:,:] = self.drawStim(False, shapeMatrix=[0], fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                batchLabels[n]     = 0
-
-            else:
-                thisType    = random.randint(0, len(shapeTypes)-1)
-                shapeType   = shapeTypes[thisType]
-                shapeConfig = shapeType*numpy.ones((random.randint(1, 3), random.randint(1, 7)))
-                batchImages[n,:,:] = self.drawStim(0, shapeConfig, fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                if normalize:
-                    batchImages[n, :, :] = (batchImages[n,:,:] - numpy.mean(batchImages[n,:,:])) / numpy.std(batchImages[n,:,:])
-                batchLabels[n]     = shapeLabels[thisType]
-
-        batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
-
-        return batchImages, batchLabels
-
-
-    def makeBatch(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1, max_rows=1, max_cols=5, vernierLabelEncoding='lr_01', vernier_grids=False, normalize=False, fixed_position=None):
-
-        # group_last_types attributes the same label to the last n shapeTypes
-        shapeLabels = numpy.arange(len(shapeTypes))
-        shapeLabels[-group_last_shapes:] = shapeLabels[-group_last_shapes]
-        batchImages = numpy.zeros(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
-        batchLabels = numpy.zeros(batchSize, dtype=numpy.float32)
-        nElements = numpy.zeros(batchSize, dtype=numpy.int64)
-        vernierLabels = numpy.zeros(batchSize, dtype=numpy.float32)  # 0 -> not a vernier, 1 -> left, 2 -> right
-
-        if vernier_grids:  # verniers come in grids, like all other shapes.
-
-            for n in range(batchSize):
-
-                thisType = random.randint(0, len(shapeTypes)-1)
-                shapeType = shapeTypes[thisType]
-                nRows = random.randint(1, max_rows)
-                nCols = random.randint(1, max_cols)
-                shapeConfig = shapeType*numpy.ones((nRows, nCols))
-                thisOffset = random.randint(0, 1)
-                batchImages[n, :, :] += self.drawStim(0, shapeConfig, fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                if normalize:
-                    batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
-                batchLabels[n, shape] = shapeLabels[thisType]
-                nElements[n, shape] = nRows*nCols
-                if vernierLabelEncoding is 'lr_01':
-                    if thisType == 0:
-                        vernierLabels[n] = random.randint(0, 1)
-                    else:
-                        vernierLabels[n] = -thisOffset
-                elif vernierLabelEncoding is 'nothinglr_012':
-                    if thisType == 0:
-                        vernierLabels[n] = 0
-                    else:
-                        vernierLabels[n] = -thisOffset + 2
-
-            batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
-
-        else:  # if vernier_grids is false, the vernier stimuli always comprise a single vernier
-
-            for n in range(batchSize):
-
-                if random.uniform(0, 1) < 0.5:  # 1/len(shapeTypes):
-                    thisOffset = random.randint(0, 1)
-                    batchImages[n, :, :] += self.drawStim(False, shapeMatrix=[0],  fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                    if normalize:
-                        batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
-                    batchLabels[n] = 0
-                    nElements[n] = 1
-                    if vernierLabelEncoding is 'lr_01':
-                        vernierLabels[n] = -thisOffset
-                    elif vernierLabelEncoding is 'nothinglr_012':
-                        vernierLabels[n] = -thisOffset + 2
-
-                else:
-                    thisType = random.randint(1, len(shapeTypes)-1)
-                    shapeType = shapeTypes[thisType]
-                    nRows = random.randint(1, max_rows)
-                    nCols = random.randint(1, max_cols)
-                    shapeConfig = shapeType*numpy.ones((nRows, nCols))
-                    batchImages[n, :, :] += self.drawStim(0, shapeConfig, fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                    if normalize:
-                        batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
-                    batchLabels[n] = shapeLabels[thisType]
-                    nElements[n] = nRows * nCols
-                    if vernierLabelEncoding is 'lr_01':
-                        vernierLabels[n] = random.randint(0, 1)
-                    elif vernierLabelEncoding is 'nothinglr_012':
-                        vernierLabels[n] = 0
-
-        if normalize_sets:
-            batchImages = (batchImages - self.mean) / self.std
-
-        batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
-
-        return batchImages, batchLabels, vernierLabels, nElements
-
-
-    def makeMultiShapeBatch(self, batchSize, shapeTypes, n_shapes=1, noiseLevel=0.0, group_last_shapes=1, max_rows=1, max_cols=3, vernierLabelEncoding='nothinglr_012', vernier_grids=False, normalize=False, normalize_sets=False, fixed_position=None, random_size=False):
-
-        # group_last_types attributes the same label to the last n shapeTypes
-        shapeLabels = numpy.arange(len(shapeTypes))
-        shapeLabels[-group_last_shapes:] = shapeLabels[-group_last_shapes]
-        batchImages = numpy.zeros(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
-        batchSingleShapeImages =  numpy.zeros(shape=(batchSize, self.imSize[0], self.imSize[1], n_shapes), dtype=numpy.float32)
-        batchLabels = numpy.zeros(shape=(batchSize, n_shapes), dtype=numpy.float32)
-        nElements = numpy.zeros(shape=(batchSize, n_shapes), dtype=numpy.int64)
-        if vernierLabelEncoding is 'nothinglr_012':
-            vernierLabels = numpy.zeros(shape=(batchSize, n_shapes), dtype=numpy.float32)  # 0 -> not a vernier, 1 -> left, 2 -> right
-        elif vernierLabelEncoding is 'lr_01':
-            vernierLabels = numpy.zeros(shape=[batchSize], dtype=numpy.float32)  # 0 -> left, 1 -> right
-        if vernier_grids:  # verniers come in grids, like all other shapes.
-
-            for n in range(batchSize):
-
-                shapes = numpy.random.permutation(len(shapeTypes))[:n_shapes]
-
-                for shape in range(n_shapes):
-
-                    thisType = shapes[shape]
-                    shapeType = shapeTypes[thisType]
-                    nRows = random.randint(1, max_rows)
-                    nCols = random.randint(1, max_cols)
-                    shapeConfig = shapeType*numpy.ones((nRows, nCols))
-                    thisOffset = random.randint(0, 1)
-                    batchSingleShapeImages[n, :, :, shape] = self.drawStim(0, shapeConfig, fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                    if random_size:
-                        zoom_factor = random.uniform(0.8, 1.2)
-                        for shape in range(n_shapes):
-                            tempImage = clipped_zoom(batchSingleShapeImages[n, :, :, shape], zoom_factor)
-                            if tempImage.shape == batchSingleShapeImages[n, :, :,
-                                                  shape].shape:  # because sometimes the zooming fucks up the image
-                                batchSingleShapeImages[n, :, :, shape] = tempImage
-                    batchImages[n, :, :] += batchSingleShapeImages[n, :, :, shape]
-                    if normalize:
-                        batchSingleShapeImages[n, :, :, shape] = (batchSingleShapeImages[n, :, :, shape] - numpy.mean(batchSingleShapeImages[n, :, :, shape])) / numpy.std(batchSingleShapeImages[n, :, :, shape])
-                    batchLabels[n, shape] = shapeLabels[thisType]
-                    nElements[n, shape] = nRows*nCols
-                    if vernierLabelEncoding is 'lr_01':
-                        if thisType == 0:
-                            vernierLabels[n, shape] = random.randint(0, 1)
-                        else:
-                            vernierLabels[n, shape] = -thisOffset + 1
-                    elif vernierLabelEncoding is 'nothinglr_012':
-                        if thisType == 0:
-                            vernierLabels[n, shape] = 0
-                        else:
-                            vernierLabels[n, shape] = -thisOffset + 2
-                if normalize:
-                    batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
-
-        else:  # if vernier_grids is false, the vernier stimuli always comprise a single vernier
-
-            for n in range(batchSize):
-
-                always_vernier = True
-                if always_vernier:
-                    # always a vernier with another shape
-                    shapes = numpy.zeros(shape=[n_shapes], dtype=numpy.int64)
-                    shapes[0] = 0
-                    shapes[1:] = numpy.random.permutation(range(1, len(shapeTypes)))[:n_shapes-1]
-                else:
-                    # use a vernier every other trial
-                    if n % 2:
-                        shapes = numpy.random.permutation(len(shapeTypes))[:n_shapes]
-                        shapes[0] = 0
-                    else:
-                        shapes = numpy.random.permutation(len(shapeTypes))[:n_shapes]
-
-                for shape in range(n_shapes):
-                    if shapes[shape] == 0:  # 1/len(shapeTypes):
-                        thisOffset = random.randint(0, 1)
-                        batchSingleShapeImages[n, :, :, shape] = self.drawStim(False, shapeMatrix=[0],  fixed_position=fixed_position, offset=thisOffset, offset_size=random.randint(1, int(self.barHeight/2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                        batchSingleShapeImages[batchSingleShapeImages > 0.2] = 1
-                        batchSingleShapeImages[batchSingleShapeImages < 0] = 0
-                        if normalize:
-                            batchSingleShapeImages[n, :, :, shape] = (batchSingleShapeImages[n, :, :, shape] - numpy.mean(batchSingleShapeImages[n, :, :, shape])) / (numpy.std(batchSingleShapeImages[n, :, :, shape]))**vernier_normalization_exp
-                            # batchSingleShapeImages[batchSingleShapeImages < 0] = 0
-
-                        if random_size:
-                            zoom_factor = random.uniform(0.8, 1.2)
-                            tempImage = clipped_zoom(batchSingleShapeImages[n, :, :, shape], zoom_factor)
-                            if tempImage.shape == batchSingleShapeImages[n, :, :, shape].shape:  # because sometimes the zooming fucks up the image
-                                batchSingleShapeImages[n, :, :, shape] = tempImage
-
-                        batchImages[n, :, :] += batchSingleShapeImages[n, :, :, shape]
-
-                        # note, we could normalize batchSingleShapeImages AFTER adding it to the multishape image, to avoid normalizing the multishape image several times
-
-                        batchLabels[n, shape] = 0
-                        nElements[n, shape] = 1
-                        if vernierLabelEncoding is 'lr_01':
-                            vernierLabels[n] = -thisOffset + 1
-                        elif vernierLabelEncoding is 'nothinglr_012':
-                            vernierLabels[n, shape] = -thisOffset + 2
-
-                    else:
-                        thisType = shapes[shape]
-                        shapeType = shapeTypes[thisType]
-                        nRows = random.randint(1, max_rows)
-                        nCols = random.randint(1, max_cols)
-                        shapeConfig = shapeType*numpy.ones((nRows, nCols))
-                        batchSingleShapeImages[n, :, :, shape] = self.drawStim(0, shapeConfig, fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                        batchSingleShapeImages[batchSingleShapeImages > 0.2] = 1
-                        batchSingleShapeImages[batchSingleShapeImages < 0] = 0
-                        if normalize:
-                            batchSingleShapeImages[n, :, :, shape] = (batchSingleShapeImages[n, :, :, shape] - numpy.mean(batchSingleShapeImages[n, :, :, shape])) / numpy.std(batchSingleShapeImages[n, :, :, shape])**vernier_normalization_exp
-                            # batchSingleShapeImages[batchSingleShapeImages < 0] = 0
-
-                        if random_size:
-                            zoom_factor = random.uniform(0.8, 1.2)
-                            tempImage = clipped_zoom(batchSingleShapeImages[n, :, :, shape], zoom_factor)
-                            if tempImage.shape == batchSingleShapeImages[n, :, :, shape].shape:  # because sometimes the zooming fucks up the image
-                                batchSingleShapeImages[n, :, :, shape] = tempImage
-
-                        batchImages[n, :, :] += batchSingleShapeImages[n, :, :, shape]
-
-                        # note, we could normalize batchSingleShapeImages AFTER adding it to the multishape image, to avoid normalizing the multishape image several times
-
-                        batchLabels[n, shape] = shapeLabels[thisType]
-                        nElements[n, shape] = nRows * nCols
-                        if vernierLabelEncoding is 'nothinglr_012':
-                            vernierLabels[n, shape] = 0
-
-
-        if normalize_sets:
-            # batchImages[batchImages > 1.2] = 1.2  # to avoid overlapping pixels to by twice as high as the rest
-            batchImages = (batchImages - self.mean) / self.std
-            batchSingleShapeImages = (batchSingleShapeImages - self.mean) / self.std
-
-        if vernierLabelEncoding is 'nothinglr_012':
-            vernierLabels = numpy.amax(vernierLabels, axis=1)
-
-        batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
-
-        return batchImages, batchSingleShapeImages, batchLabels, vernierLabels, nElements
-
-
-    def makeVernierBatch(self, batchSize, noiseLevel=0.0, normalize=False, normalize_sets=False, fixed_position=None, vernierLabelEncoding='nothinglr_012'):
-
-        batchImages = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
-        batchLabels = numpy.zeros(batchSize, dtype=numpy.float32)
-
-        for n in range(batchSize):
-
-            offset = random.randint(0, 1)
-            batchImages[n,:,:] = self.drawStim(False, shapeMatrix=[0], offset=offset, fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-            if normalize:
-                batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])
-            if vernierLabelEncoding is 'nothinglr_012':
-                batchLabels[n] = -offset + 2
-            elif vernierLabelEncoding is 'lr_01':
-                batchLabels[n] = -offset + 1
-
-        if normalize_sets:
-            batchImages = (batchImages - self.mean) / self.std
-
-        batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
-
-        return batchImages, batchLabels
-
-
     def makeConfigBatch(self, batchSize, configMatrix, doVernier = False, noiseLevel=0.0, normalize=False, normalize_sets=False, fixed_position=None, vernierLabelEncoding='nothinglr_012', random_size=False):
 
         batchImages   = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
@@ -637,9 +367,6 @@ class StimMaker:
                 if tempImage.shape == batchImages[n, :, :].shape:
                     batchImages[n, :, :] = tempImage
 
-                # batchImages[batchImages > 0.2] = 1
-                # batchImages[batchImages < 0] = 0
-
         if normalize_sets:
             batchImages = (batchImages - self.mean) / self.std
 
@@ -648,98 +375,18 @@ class StimMaker:
         return batchImages, vernierLabels
 
 
-    # this returns the batch along with patches for each image (e.g. a square patch if the image is made of squares)
-    def makeBatchWithShape(self, batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1, normalize=False, normalize_sets=False, fixed_position=None):
+    def showBatch(self, batchSize, config, noiseLevel=0.0, normalize=False, fixed_position=None, vernierLabelEncoding='lr_01'):
 
-        # group_last_types attributes the same label to the last n shapeTypes
-        shapeLabels = numpy.arange(1, len(shapeTypes) + 1)
-        shapeLabels[-group_last_shapes:] = shapeLabels[-group_last_shapes]
-        batchImages = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
-        batchLabels = numpy.zeros(batchSize, dtype=numpy.float32)
-        batchShapes = numpy.ndarray(shape=(batchSize, self.shapeSize, self.shapeSize), dtype=numpy.float32)
+        # input a configuration to display
+        batchImages, batchLabels = self.makeConfigBatch(batchSize, config, doVernier=True, noiseLevel=noiseLevel, normalize=normalize, fixed_position=fixed_position, vernierLabelEncoding=vernierLabelEncoding)
 
         for n in range(batchSize):
+            plt.figure()
+            plt.imshow(batchImages[n, :, :, 0])
+            plt.title('Label, mean, stdev = ' + str(batchLabels[n]) + ', ' + str(
+                numpy.mean(batchImages[n, :, :, 0])) + ', ' + str(numpy.std(batchImages[n, :, :, 0])))
+            plt.show()
 
-            if not n % 4:
-                offset = random.randint(0, 1)
-                batchImages[n, :, :] = self.drawStim(False, shapeMatrix=[0], offset=offset, fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                batchShapes[n, :, :] = self.drawVernier(offset=offset)
-                if normalize:
-                    batchImages[n, :, :] = (batchImages[n,:,:] - numpy.mean(batchImages[n,:,:])) / numpy.std(batchImages[n,:,:])
-                batchLabels[n] = 0
-
-            else:
-                thisType = random.randint(0, len(shapeTypes) - 1)
-                shapeType = shapeTypes[thisType]
-                shapeConfig = shapeType * numpy.ones((random.randint(1, 3), random.randint(1, 7)))
-                batchImages[n, :, :] = self.drawStim(0, shapeConfig, fixed_position=fixed_position) + numpy.random.normal(0, noiseLevel, size=self.imSize)
-                batchShapes[n, :, :] = self.drawShape(shapeType)
-                if normalize:
-                    batchImages[n, :, :] = (batchImages[n,:,:] - numpy.mean(batchImages[n,:,:])) / numpy.std(batchImages[n,:,:])
-                batchLabels[n] = shapeLabels[thisType]
-
-        if normalize_sets:
-            batchImages = (batchImages - self.mean) / self.std
-
-        batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
-        batchShapes = numpy.expand_dims(batchShapes, -1)  # need to a a fourth dimension for tensorflow
-
-        return batchImages, batchLabels, batchShapes
-
-
-    def showBatch(self, batchSize, shapeTypes, n_shapes=1, showVernier=False, showPatch=False, showConfig='no_config', noiseLevel=0.0, group_last_shapes=1, normalize=False, fixed_position=None, random_size=False, vernierLabelEncoding='lr_01'):
-
-        if showPatch:
-            batchImages, batchLabels, batchShapes = self.makeBatchWithShape(batchSize, shapeTypes, noiseLevel=0.0, group_last_shapes=1, normalize=normalize, fixed_position=fixed_position)
-
-            for n in range(batchSize):
-                plt.figure()
-                plt.imshow(batchImages[n, :, :, 0])
-                plt.title('Label, mean, stdev = ' + str(batchLabels[n]) + ', ' + str(numpy.mean(batchImages[n, :, :, 0])) + ', ' +  str(numpy.std(batchImages[n, :, :, 0])))
-                plt.show()
-                plt.imshow(batchShapes[n, :, :, 0])
-                plt.title('Single shape from previous stimulus')
-                plt.show()
-
-        elif showVernier:
-            batchImages, batchLabels = self.makeVernierBatch(batchSize, noiseLevel, normalize, fixed_position)
-
-            for n in range(batchSize):
-                plt.figure()
-                plt.imshow(batchImages[n, :, :, 0])
-                plt.title('Label, mean, stdev = ' + str(batchLabels[n]) + ', ' + str(numpy.mean(batchImages[n, :, :, 0])) + ', ' + str(numpy.std(batchImages[n, :, :, 0])))
-                plt.show()
-
-        elif showConfig is not 'no_config':
-            # input a configuration to display
-            batchImages, batchLabels = self.makeConfigBatch(batchSize, showConfig, doVernier=True, noiseLevel=noiseLevel, normalize=normalize, fixed_position=fixed_position, vernierLabelEncoding=vernierLabelEncoding)
-
-            for n in range(batchSize):
-                plt.figure()
-                plt.imshow(batchImages[n, :, :, 0])
-                plt.title('Label, mean, stdev = ' + str(batchLabels[n]) + ', ' + str(
-                    numpy.mean(batchImages[n, :, :, 0])) + ', ' + str(numpy.std(batchImages[n, :, :, 0])))
-                plt.show()
-
-        elif n_shapes>1:
-            batchImages, batchSingleShapeImages, batchLabels, vernierLabels, nElements = self.makeMultiShapeBatch(batchSize, shapeTypes, n_shapes=n_shapes, noiseLevel=noiseLevel, group_last_shapes=group_last_shapes, normalize=normalize, fixed_position=fixed_position, random_size=random_size, vernierLabelEncoding=vernierLabelEncoding)
-            for n in range(batchSize):
-                plt.figure()
-                plt.imshow(batchImages[n, :, :, 0])
-                plt.title('Label, vernier label, mean, stdev = ' + str(batchLabels[n]) + ', ' + str(vernierLabels[n]) + ', ' + str(numpy.mean(batchImages[n, :, :, 0])) + ', ' + str(numpy.std(batchImages[n, :, :, 0])))
-                plt.show()
-                for m in range(n_shapes):
-                    plt.figure()
-                    plt.imshow(batchSingleShapeImages[n, :, :, m])
-                    plt.title('Single shape ' + str(m) + '. Label = ' + str(batchLabels[n,m]))
-                    plt.show()
-        else:
-            batchImages, batchLabels, vernierLabels, nElements = self.makeBatch(batchSize, shapeTypes, noiseLevel=noiseLevel, group_last_shapes=group_last_shapes, normalize=normalize, fixed_position=fixed_position)
-            for n in range(batchSize):
-                plt.figure()
-                plt.imshow(batchImages[n, :, :, 0])
-                plt.title('Label, vernier label, mean, stdev = ' + str(batchLabels[n]) + ', ' + str(vernierLabels[n]) + ', ' + str(numpy.mean(batchImages[n, :, :, 0])) + ', ' + str(numpy.std(batchImages[n, :, :, 0])))
-                plt.show()
 
 
 if __name__ == "__main__":
@@ -747,7 +394,7 @@ if __name__ == "__main__":
     other_shape_ID = 2  # there will be squares and this shape in the array
     rufus = StimMaker((50, 83), 16, 1)
     stim_matrix = numpy.random.randint(2, size=(3,5))*(other_shape_ID-1) + 1
-    stim_matrix[1,2] = 1
+    stim_matrix[1, 2] = 1
 
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(1, stim_matrix, n_shapes=1, showPatch=False, showVernier=False, showConfig=stim_matrix, noiseLevel=noise_level, normalize=normalize_images, random_size=random_size, vernierLabelEncoding='lr_01', fixed_position=fixed_stim_position)
+    rufus.showBatch(1, stim_matrix, stim_matrix)

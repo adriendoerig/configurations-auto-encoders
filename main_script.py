@@ -17,9 +17,9 @@ if not os.path.exists('./dataset.npy'):
     matrices[:, 1, 2] = 1
     dataset = np.zeros(shape=(matrices.shape[0], im_size[0], im_size[1], 1))  # need fourth dimension for tensorflow
 
-    for i in range(2**14):
+    for i in range(2**15):
         dataset[i, :, :, :], _ = stim_maker.makeConfigBatch(batchSize=1, configMatrix=matrices[i, :, :]*(other_shape_ID-1) + 1, doVernier=False)
-        print("\rMaking dataset: {}/{} ({:.1f}%)".format(i, 2**14, i * 100 / 2**14),end="")
+        print("\rMaking dataset: {}/{} ({:.1f}%)".format(i, 2**15, i * 100 / 2**15),end="")
 
     np.save('dataset.npy', dataset)
 
@@ -37,20 +37,20 @@ if show_samples:
     plt.figure(figsize=(n_samples * 2, 3))
     for index in range(n_samples):
         plt.subplot(1, n_samples, index + 1)
-        sample_image = dataset[np.random.randint(2**14), :, :].reshape(im_size[0], im_size[1])
+        sample_image = dataset[np.random.randint(2**15), :, :].reshape(im_size[0], im_size[1])
         plt.imshow(sample_image, cmap="binary")
         plt.axis("off")
     plt.show()
 
 # we will do a loop over many diffent number of hidden units
-if model_type is 'caps':  # we don't use ALL n_hidden_units. Here, choose which ones to use.
+if model_type is ('caps' or 'large_caps'):  # we don't use ALL n_hidden_units. Here, choose which ones to use.
     chosen_n_units = range(1, n_hidden_units_max + 1)
 elif model_type is 'large_conv':
     chosen_n_units = range(1, bottleneck_features_max + 1)
 else:
     chosen_n_units = range(8, n_hidden_units_max + 1, 4)
 
-final_losses_order_all = np.zeros(shape=(len(chosen_n_units), 2**14))
+final_losses_order_all = np.zeros(shape=(len(chosen_n_units), 2**15))
 run_ID = 0
 
 for n_hidden_units in chosen_n_units:
@@ -264,7 +264,7 @@ for n_hidden_units in chosen_n_units:
     saver = tf.train.Saver()
     init = tf.global_variables_initializer()
     summary = tf.summary.merge_all()
-    n_batches = 2**14//batch_size
+    n_batches = 2**15//batch_size
 
     with tf.Session() as sess:
 
@@ -320,8 +320,8 @@ for n_hidden_units in chosen_n_units:
         dataset = np.load('./dataset.npy')
 
         n_trials = 10
-        final_losses = np.zeros(shape=(n_trials, 2**14))
-        final_reconstructions = np.zeros(shape=(2**14, im_size[0], im_size[1], 1))
+        final_losses = np.zeros(shape=(n_trials, 2**15))
+        final_reconstructions = np.zeros(shape=(2**15, im_size[0], im_size[1], 1))
         for trial in range(n_trials):
             for batch in range(n_batches):
                 # get all post-training losses
@@ -359,7 +359,7 @@ for n_hidden_units in chosen_n_units:
         sample_image = dataset[final_losses_order[-(index+1)], :, :, 0].reshape(im_size[0], im_size[1])
         plt.imshow(sample_image, cmap="binary")
         plt.axis("off")
-        plt.title('Rank: ' + str(2**14-index))
+        plt.title('Rank: ' + str(2**15-index))
         plt.subplot(2, n_samples, n_samples + index + 1)
         sample_image = final_reconstructions[final_losses_order[-(index+1)], :, :, 0].reshape(im_size[0], im_size[1])
         plt.imshow(sample_image, cmap="binary")
@@ -367,10 +367,11 @@ for n_hidden_units in chosen_n_units:
         plt.title('Avg. loss: ' + str(int(final_losses[final_losses_order[-(index+1)]])))
     plt.savefig(LOGDIR+'/worst5.png')
 
+    plt.close('all')
     run_ID += 1
 
 # save final results (a matrix with the order of best configurations for each network type - for example if a row is
 # [2 0 1], it means that network 2 had the lowest loss, then net 0 and finally net 1). Analysis in analyse_results.py.
 if not os.path.exists('./results'):
     os.mkdir('./results')
-np.save('./results' + model_type + '_final_losses_order_all', final_losses_order_all)
+np.save('./results/' + model_type + '_final_losses_order_all', final_losses_order_all)

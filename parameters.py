@@ -1,5 +1,8 @@
 import tensorflow as tf
 
+### set to 1 if running in the cloud (will change data/saving path names accordingly) ###
+in_cloud = 1
+
 ### stimulus params ###
 im_size = (50, 83)                             # size of full image
 other_shape_ID = 2                              # there will be squares and this shape in the array
@@ -8,8 +11,8 @@ random_size = False                             # shape_size will vary around sh
 random_pixels = 0                               # stimulus pixels are drawn from random.uniform(1-random_pixels,1+random_pixels). So use 0 for deterministic stimuli. see batchMaker.py
 simultaneous_shapes = 1                         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
 bar_width = 1                                   # thickness of elements' bars
-noise_level = 0.0                               # add noise in dataset
-late_noise = 0.05                               # add noise to each batch
+noise_level = 0.05                               # add noise in dataset
+late_noise = 0.0                               # add noise to each batch
 shape_types = [0, 1, 2, 3, 4, 5, 6, 9]          # see batchMaker.drawShape for number-shape correspondences
 group_last_shapes = 1                           # attributes the same label to the last n shapeTypes
 fixed_stim_position = (1,1)                     # put top left corner of all stimuli at fixed_position
@@ -26,7 +29,7 @@ vernier_grids = False                           # if true, verniers come in grid
 # 'caps' = a conv layer, a primary caps layer and a secondary caps layer.
 # 'conv-deconv' = 3 conv laywer + pooling, then a dense bottleneck, then 3 upscaling layer as a decoder (no real deconv)
 
-model_type = 'conv'
+model_type = 'caps'
 
 if model_type is 'dense':
     n_hidden_units_max = 128
@@ -71,7 +74,7 @@ elif model_type is ('caps' or 'large_caps'):
                         "activation": activation_function,
                         }
     # output capsules
-    n_hidden_units_max = 16  # number of secondary capsules (note: 16*8=128 = Nbr of neurons than the convnet)
+    n_hidden_units_max = 10  # number of secondary capsules (note: 16*8=128 = Nbr of neurons than the convnet)
     caps2_n_dims = 8  # of n dimensions
     rba_rounds = 3
     if model_type is 'large_caps':
@@ -83,12 +86,20 @@ elif model_type is 'VAE':
     n_neurons1 = 50
     n_neurons2 = 50
     n_hidden_units_max = 128
-    beta = 1  # 1 -> no disentaglement >1 -> disentanglement
+    beta = 4  # 1 -> no disentaglement >1 -> disentanglement
 
 # learning rate
 learning_rate = .0001
 
 ### training opts ###
+if in_cloud:
+    tfrecords_path = 'gs://autoencoders-data/dataset.tfrecords'
+else:
+    tfrecords_path = './dataset.tfrecords'
+
 batch_size = 64
 n_epochs = 10
+n_steps = 2**15//batch_size*n_epochs
+eval_steps = 10  # number of of steps for which to evaluate model
+eval_throttle_secs = 100000  # number of seconds after which to evaluate model
 

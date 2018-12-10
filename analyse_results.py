@@ -2,43 +2,42 @@ import numpy as np
 import imageio
 import matplotlib.pyplot as plt
 import os
-from parameters import n_hidden_units_max, im_size, model_type, bottleneck_features_max
+from parameters import im_size, model_type
 
 if not os.path.exists('./results'):
     os.mkdir('./results')
 
 # find out how many different networks we tried
-if model_type is 'caps':  # we don't use ALL n_hidden_units. Here, choose which ones to use.
+if model_type is ('caps' or 'large_caps'):  # we don't use ALL n_hidden_units. Here, choose which ones to use.
+    from parameters import n_hidden_units_max
     chosen_n_units = range(1, n_hidden_units_max + 1)
-elif model_type is ('conv_deconv' or 'VAE'):
+elif model_type is 'large_conv':
+    from parameters import bottleneck_features_max
     chosen_n_units = range(1, bottleneck_features_max + 1)
 else:
+    from parameters import n_hidden_units_max
     chosen_n_units = range(8, n_hidden_units_max + 1, 4)
 
 print('loading dataset and simulation results')
 dataset = np.load('./dataset.npy')
 final_losses_order_all = np.load('./results/' + model_type +'_final_losses_order_all.npy')
 
-# scores count the avg. position of a configuration: if it has the lowest loss->2**14, if is has the highest loss->1.
+# scores count the avg. position of a configuration: if it has the lowest loss->2**15, if is has the highest loss->1.
 # note that the higher the score, the better the performance (this is easier for visualizing the result graphs).
 # each line i corresponds to the mean score over all models with n_hidden_units <= i+1 (e.g. line 0 contains the scores
 # for the net with a single hidden unit and line 2 contains the avg scores over models with 1, 2 & 3 hidden units.
 print('computing mean scores over models with increasing n_hidden_units')
-if not os.path.exists('./scores.npy'):
-    scores = np.zeros(shape=(final_losses_order_all.shape[0], 2**14))
-    for i in range(final_losses_order_all.shape[0]):
-        for j in range(2**14):
-            scores[i:, j] += np.squeeze(
-                np.tile(np.where(j == final_losses_order_all[i, :]), final_losses_order_all.shape[0] - i))
-        scores[i, :] /= i + 1
-    scores = 2**14+1-scores # originally, the best configs have low values. Switch this for better visualisation.
-else:
-    scores = np.load('scores.npy')
+scores = np.zeros(shape=(final_losses_order_all.shape[0], 2**15))
+for i in range(final_losses_order_all.shape[0]):
+    for j in range(2**15):
+        scores[i:, j] += np.squeeze(np.tile(np.where(j == final_losses_order_all[i, :]), final_losses_order_all.shape[0] - i))
+    scores[i, :] /= i + 1
+scores = 2**15+1-scores # originally, the best configs have low values. Switch this for better visualisation.
 
 print('creating graph for final results.')
 mean_score = np.mean(final_losses_order_all, axis=0)
 
-ind = np.arange(2**14)
+ind = np.arange(2**15)
 fig, ax = plt.subplots()
 ax.bar(ind, mean_score, color=(3./255, 57./255, 108./255))
 
@@ -78,7 +77,7 @@ def plot_for_offset(data):
     ax.bar(ind, mean_score, color=(3. / 255, 57. / 255, 108. / 255))
     ax.set_xlabel('configuration IDs')
     ax.set_ylabel('Mean scores')
-    ax.set_ylim(0, 2**14)
+    ax.set_ylim(0, 2**15)
     plt.title('Current mean over networks 1 -> ' + str(data.shape[0]))
     # Used to return the plot as an image array
     fig.canvas.draw()  # draw the canvas, cache the renderer
@@ -88,7 +87,7 @@ def plot_for_offset(data):
 
 
 # make gif
-for i in range(len(chosen_n_units)):
+for i in range(1, len(chosen_n_units)-1):
     print("\r{}/{} ({:.1f}%) ".format(i, len(chosen_n_units), i * 100 / len(chosen_n_units)), end="")
     imgs_for_gif.append(plot_for_offset(final_losses_order_all[:i, :]))
 imageio.mimsave('./results/' + model_type + '_mean_scores_evolving.gif', imgs_for_gif, fps=4)
