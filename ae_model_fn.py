@@ -1,7 +1,7 @@
 from capsule_functions import *
 from parameters import *
 
-def model_fn(features, bottleneck_units, mode, LOGDIR, params):
+def model_fn(features, labels, mode, params):
     # images:   Our data
     # mode:     Either TRAIN, EVAL, or PREDICT
     # params:   Optional parameters; here not needed because of parameter-file
@@ -16,7 +16,7 @@ def model_fn(features, bottleneck_units, mode, LOGDIR, params):
             with tf.name_scope('neurons'):
                 X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
                 tf.summary.histogram('X_flat', X_flat)
-                hidden = tf.layers.dense(X_flat, bottleneck_units, name='hidden_layer')
+                hidden = tf.layers.dense(X_flat, params['bottleneck_units'], name='hidden_layer')
                 tf.summary.histogram('hidden_layer', hidden)
                 X_reconstructed = tf.layers.dense(hidden, im_size[0] * im_size[1], name='reconstruction')
                 tf.summary.histogram('X_reconstructed', X_reconstructed)
@@ -38,7 +38,7 @@ def model_fn(features, bottleneck_units, mode, LOGDIR, params):
                     tf.summary.histogram('dense1', dense1)
                     dense2 = tf.layers.dense(dense1, n_neurons2, name='dense2')
                     tf.summary.histogram('dense2', dense2)
-                    encoded = tf.layers.dense(dense2, bottleneck_units, name='encoded')
+                    encoded = tf.layers.dense(dense2, params['bottleneck_units'], name='encoded')
                     tf.summary.histogram('encoded', encoded)
                 with tf.name_scope('decoder'):
                     dense3 = tf.layers.dense(encoded, n_neurons2, name='dense3')
@@ -63,7 +63,7 @@ def model_fn(features, bottleneck_units, mode, LOGDIR, params):
                 conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params)
                 tf.summary.histogram('conv2', conv2)
                 conv2_flat = tf.reshape(conv2, [-1, int(np.prod(conv2.get_shape()[1:]))], name='conv2_flat')
-                dense = tf.layers.dense(conv2_flat, bottleneck_units, name='dense_layer')
+                dense = tf.layers.dense(conv2_flat, params['bottleneck_units'], name='dense_layer')
                 tf.summary.histogram('dense', dense)
                 X_reconstructed = tf.layers.dense(dense, im_size[0] * im_size[1], name='reconstruction')
                 tf.summary.histogram('X_reconstructed', X_reconstructed)
@@ -88,7 +88,7 @@ def model_fn(features, bottleneck_units, mode, LOGDIR, params):
                                              activation=tf.nn.relu, name='conv2')  # Now 25x42x8
                     maxpool2 = tf.layers.max_pooling2d(conv2, pool_size=(2, 2), strides=(2, 2), padding='same',
                                                        name='pool2')  # Now 13x21/4x8
-                    conv3 = tf.layers.conv2d(inputs=maxpool2, filters=bottleneck_units, kernel_size=(3, 3),
+                    conv3 = tf.layers.conv2d(inputs=maxpool2, filters=params['bottleneck_units'], kernel_size=(3, 3),
                                              padding='same', activation=tf.nn.relu,
                                              name='conv3')  # Now 13x21xbottleneck_units
                     encoded = tf.layers.max_pooling2d(conv3, pool_size=(2, 2), strides=(2, 2), padding='same',
@@ -134,9 +134,9 @@ def model_fn(features, bottleneck_units, mode, LOGDIR, params):
                                     int((conv1_height - conv_caps_params["kernel_size"]) / conv_caps_params[
                                         "strides"] + 1)))
                 caps1 = primary_caps_layer(conv1, caps1_n_caps, caps1_n_dims, **conv_caps_params)
-                caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, bottleneck_units, caps2_n_dims,
+                caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, params['bottleneck_units'], caps2_n_dims,
                                              rba_rounds)
-                caps2_flat = tf.reshape(caps2, [-1, bottleneck_units * caps2_n_dims])
+                caps2_flat = tf.reshape(caps2, [-1, params['bottleneck_units'] * caps2_n_dims])
                 if model_type is 'caps_large':
                     dense1 = tf.layers.dense(caps2_flat, n_neurons1, name='decoder_hidden1')
                     dense2 = tf.layers.dense(dense1, n_neurons2, name='decoder_hidden2')
@@ -182,9 +182,9 @@ def model_fn(features, bottleneck_units, mode, LOGDIR, params):
 
         # Define the model.
         with tf.name_scope('prior'):
-            prior = make_prior(code_size=bottleneck_units)
+            prior = make_prior(code_size=params['bottleneck_units'])
         with tf.name_scope('encoder'):
-            posterior = make_encoder(X, code_size=bottleneck_units)
+            posterior = make_encoder(X, code_size=params['bottleneck_units'])
             code = posterior.sample()
         # Define the loss.
         with tf.name_scope('loss'):
@@ -203,7 +203,7 @@ def model_fn(features, bottleneck_units, mode, LOGDIR, params):
         training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
 
     # write summaries during evaluation
-    eval_summary_hook = tf.train.SummarySaverHook(save_steps=10000, output_dir=LOGDIR + '/eval', summary_op=tf.summary.merge_all())
+    eval_summary_hook = tf.train.SummarySaverHook(save_steps=10000, output_dir=params['LOGDIR'] + '/eval', summary_op=tf.summary.merge_all())
 
     # Wrap all of this in an EstimatorSpec.
     if mode == tf.estimator.ModeKeys.PREDICT:
