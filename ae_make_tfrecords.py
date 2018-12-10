@@ -16,9 +16,6 @@ from parameters import im_size, shape_size, bar_width, other_shape_ID, noise_lev
 ##################################
 #       Helper functions:        #
 ##################################
-def wrap_int64(value):
-    output = tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
-    return output
 
 
 def wrap_bytes(value):

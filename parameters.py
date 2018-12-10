@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 ### set to 1 if running in the cloud (will change data/saving path names accordingly) ###
-in_cloud = 1
+in_cloud = 0
 
 ### stimulus params ###
 im_size = (50, 83)                             # size of full image

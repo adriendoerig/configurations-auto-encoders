@@ -13,7 +13,7 @@ from ae_input_fn import input_fn
 
 print('-------------------------------------------------------')
 print('TF version:', tf.__version__)
-print('Starting capsnet script...')
+print('Starting encoder script...')
 print('-------------------------------------------------------')
 
 
@@ -22,8 +22,7 @@ print('-------------------------------------------------------')
 ###########################
 # For reproducibility:
 tf.reset_default_graph()
-np.random.seed(42)
-tf.set_random_seed(42)
+
 # Output the loss in the terminal every few steps:
 logging.getLogger().setLevel(logging.INFO)
 
@@ -48,10 +47,10 @@ for n_hidden_units in chosen_n_units:
     ### LOGDIR  ###
     if in_cloud:
         LOGDIR = 'gs://autoencoders-data/' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
-        checkpoint_path = LOGDIR + '/checkpoint.ckpt'
+        checkpoint_path = LOGDIR + '/'
     else:
         LOGDIR = './' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
-        checkpoint_path = LOGDIR + '/checkpoint.ckpt'
+        checkpoint_path = LOGDIR + '/'
 
     # Create the estimator:
     ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR}, model_dir=LOGDIR)

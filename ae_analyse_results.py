@@ -11,6 +11,7 @@ import numpy as np
 from parameters import *
 from ae_model_fn import model_fn
 from batchMaker import StimMaker
+tf.estimator.Estimator._validate_features_in_predict_input = lambda *args: None
 
 
 ########################################################################################################################
@@ -35,8 +36,20 @@ else:
     print(' dataset.npy found -> loading')
     dataset = np.load('./dataset.npy')
 
+# the following function makes tf.datasets from numpy batches
 def input_fn_pred(batch):
-    return {'images': tf.convert_to_tensor(batch)}
+    batch_size = batch.shape[0]
+    batch = tf.convert_to_tensor(batch, dtype=tf.float32)
+    dataset = tf.data.Dataset.from_tensor_slices(batch)
+    dataset = dataset.batch(batch_size, drop_remainder=True)
+    # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
+    dataset = dataset.prefetch(2)
+    # Create an iterator for the dataset and the above modifications.
+    iterator = dataset.make_one_shot_iterator()
+    # Get the next batch of images and labels.
+    images = iterator.get_next()
+    feed_dict = {'images': images}
+    return feed_dict
 
 
 ########################################################################################################################
@@ -61,10 +74,10 @@ if not os._exists('./results/' + model_type + '_final_losses_order_all'):
         ### LOGDIR  ###
         if in_cloud:
             LOGDIR = 'gs://autoencoders-data/' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
-            checkpoint_path = LOGDIR + '/checkpoint.ckpt'
+            checkpoint_path = LOGDIR + '/checkpoint.ckpt/'
         else:
             LOGDIR = './' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
-            checkpoint_path = LOGDIR + '/checkpoint.ckpt'
+            checkpoint_path = LOGDIR + '/'
 
         # Create the estimator:
         ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR}, model_dir=LOGDIR)
@@ -75,11 +88,12 @@ if not os._exists('./results/' + model_type + '_final_losses_order_all'):
         final_losses = np.zeros(shape=(n_trials, 2**15))
         final_reconstructions = np.zeros(shape=(2**15, im_size[0], im_size[1], 1))
         for batch in range(n_batches):
+            print("\r..... {}/{} ({:.1f}%)".format(batch, n_batches, batch * 100 / n_batches), end="")
             for trial in range(n_trials):
                 this_batch = dataset[batch * batch_size:batch * batch_size + batch_size, :, :, :] + np.random.normal(0, late_noise, size=dataset[batch * batch_size:batch * batch_size + batch_size, :, :, :].shape)
-                ae_out = list(ae.predict(input_fn=lambda: input_fn_pred(this_batch), checkpoint_path=checkpoint_path))
+                ae_out = list(ae.predict(input_fn=lambda: input_fn_pred(this_batch)))
                 final_losses[trial, batch * batch_size:batch * batch_size + batch_size] = [p["all_losses"] for p in ae_out]
-            final_reconstructions[batch * batch_size:batch * batch_size + batch_size, :, :, :] = [p["X_reconstructed"] for p in ae_out]
+            final_reconstructions[batch * batch_size:batch * batch_size + batch_size, :, :, :] = [p["reconstructions"] for p in ae_out]
         final_losses = np.mean(final_losses, axis=0)
 
         # get indices of the configurations from lowest to highest loss
