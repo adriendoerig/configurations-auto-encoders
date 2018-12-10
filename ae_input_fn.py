@@ -16,7 +16,7 @@ def parse_tfrecords(serialized_data):
 
     # Parse the serialized data so we get a dict with our data.
     parsed_data = tf.parse_single_example(serialized=serialized_data, features=features)
-    images = parsed_data['shape']
+    images = parsed_data['images']
     images = tf.decode_raw(images, tf.float32)
     images = tf.cast(images, tf.float32)
 

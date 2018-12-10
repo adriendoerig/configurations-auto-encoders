@@ -95,18 +95,15 @@ def model_fn(features, labels, mode, params):
                                                       name='pool3_encoded')  # Now 7x11xbottleneck_units
                 with tf.name_scope('decoder'):
                     upsample1 = tf.image.resize_images(encoded, size=(13, 21),
-                                                       method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
-                                                       name='upsample1')  # Now 13x21xbottleneck_units
+                                                       method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 13x21xbottleneck_units
                     conv4 = tf.layers.conv2d(inputs=upsample1, filters=8, kernel_size=(3, 3), padding='same',
                                              activation=tf.nn.relu, name='conv4')  # Now 13x21x8
                     upsample2 = tf.image.resize_images(conv4, size=(25, 42),
-                                                       method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
-                                                       name='upsample2')  # Now 25x42x8
+                                                       method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 25x42x8
                     conv5 = tf.layers.conv2d(inputs=upsample2, filters=8, kernel_size=(3, 3), padding='same',
                                              activation=tf.nn.relu, name='conv5')  # Now 25x42x8
                     upsample3 = tf.image.resize_images(conv5, size=(50, 83),
-                                                       method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
-                                                       name='upsample3')  # Now 50x83x8
+                                                       method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 50x83x8
                     conv6 = tf.layers.conv2d(inputs=upsample3, filters=16, kernel_size=(3, 3), padding='same',
                                              activation=tf.nn.relu, name='conv6')  # Now 50x83x16
                     logits = tf.layers.conv2d(inputs=conv6, filters=1, kernel_size=(3, 3), padding='same',
@@ -117,7 +114,8 @@ def model_fn(features, labels, mode, params):
                     tf.summary.image('reconstruction', X_reconstructed_image, 6)
             with tf.name_scope('reconstruction_loss'):
                 X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
-                all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed, X_flat, name='square_diffs'), axis=1,
+                X_reconstructed_flat = tf.reshape(X_reconstructed, [-1, im_size[0] * im_size[1]], name='X_reconstructed_flat')
+                all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed_flat, X_flat, name='square_diffs'), axis=1,
                                            name='losses_per_image')
                 loss = tf.reduce_mean(all_losses, name='loss')
                 tf.summary.scalar('loss', loss)
@@ -134,6 +132,7 @@ def model_fn(features, labels, mode, params):
                                     int((conv1_height - conv_caps_params["kernel_size"]) / conv_caps_params[
                                         "strides"] + 1)))
                 caps1 = primary_caps_layer(conv1, caps1_n_caps, caps1_n_dims, **conv_caps_params)
+                print(params['bottleneck_units'])
                 caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, params['bottleneck_units'], caps2_n_dims,
                                              rba_rounds)
                 caps2_flat = tf.reshape(caps2, [-1, params['bottleneck_units'] * caps2_n_dims])
