@@ -207,11 +207,19 @@ def model_fn(images, bottleneck_units, mode, LOGDIR, params):
     eval_summary_hook = tf.train.SummarySaverHook(save_steps=10000, output_dir=LOGDIR + '/eval', summary_op=tf.summary.merge_all())
 
     # Wrap all of this in an EstimatorSpec.
-    spec = tf.estimator.EstimatorSpec(
-        mode=mode,
-        loss=loss,
-        train_op=training_op,
-        eval_metric_ops={},
-        evaluation_hooks=[eval_summary_hook])
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        # the following line is
+        predictions = {'all_losses': all_losses, 'reconstructions': X_reconstructed_image}
+        spec = tf.estimator.EstimatorSpec(
+            mode=mode,
+            predictions=predictions)
+        return spec
 
-    return spec
+    else:
+        spec = tf.estimator.EstimatorSpec(
+            mode=mode,
+            loss=loss,
+            train_op=training_op,
+            eval_metric_ops={},
+            evaluation_hooks=[eval_summary_hook])
+        return spec

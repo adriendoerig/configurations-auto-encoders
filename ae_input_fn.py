@@ -70,3 +70,4 @@ def input_fn(filenames, buffer_size=1024):
 ##############################
 def input_fn():
     return input_fn(filenames=tfrecords_path)
+

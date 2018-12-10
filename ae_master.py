@@ -42,7 +42,6 @@ else:
     chosen_n_units = range(8, n_hidden_units_max + 1, 4)
 
 final_losses_order_all = np.zeros(shape=(len(chosen_n_units), 2**15))
-run_ID = 0
 
 for n_hidden_units in chosen_n_units:
 
@@ -56,9 +55,9 @@ for n_hidden_units in chosen_n_units:
         checkpoint_path = LOGDIR + '/checkpoint.ckpt'
 
     # Create the estimator:
-    capser = tf.estimator.Estimator(model_fn=model_fn, model_dir=LOGDIR)
+    ae = tf.estimator.Estimator(model_fn=model_fn, model_dir=LOGDIR)
     train_spec = tf.estimator.TrainSpec(input_fn, max_steps=n_steps)
     eval_spec = tf.estimator.EvalSpec(input_fn, steps=eval_steps, throttle_secs=eval_throttle_secs)
 
     # Lets go!
-    tf.estimator.train_and_evaluate(capser, train_spec, eval_spec)
+    tf.estimator.train_and_evaluate(ae, train_spec, eval_spec)
