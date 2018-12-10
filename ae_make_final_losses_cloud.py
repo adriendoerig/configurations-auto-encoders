@@ -2,22 +2,17 @@
 """
 Goes through all trained models of type model_type (set in parameters.py)
 -> saves model_type_final_losses_order_all.npy
-Uses the file to analyse the results.
 """
 
-import os, itertools
 import numpy as np
 from parameters import *
 from ae_model_fn import model_fn
-from batchMaker import StimMaker
 
 
 ########################################################################################################################
 # Make or load dataset
 ########################################################################################################################
 
-
-stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
 dataset = np.load('gs://autoencoders-data/dataset.npy')
 
 def input_fn_pred(batch):
@@ -72,6 +67,4 @@ for it, n_hidden_units in enumerate(chosen_n_units):
 
     # save final results (a matrix with the order of best configurations for each network type - for example if a row is
     # [2 0 1], it means that network 2 had the lowest loss, then net 0 and finally net 1). Analysis in analyse_results.py.
-    if not os.path.exists('gs://autoencoders-data/results'):
-        os.mkdir('gs://autoencoders-data/results')
     np.save('gs://autoencoders-data/results/' + model_type + '_final_losses_order_all', final_losses_order_all)
