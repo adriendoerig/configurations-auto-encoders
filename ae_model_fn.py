@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 from capsule_functions import *
 from parameters import *
 

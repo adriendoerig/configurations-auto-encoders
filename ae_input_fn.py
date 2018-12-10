@@ -4,7 +4,6 @@ My script for the input fn using tfrecords files (good for estimators)
 """
 
 import tensorflow as tf
-import numpy as np
 from parameters import im_size, n_epochs, batch_size, tfrecords_path
 
 
