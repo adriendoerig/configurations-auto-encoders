@@ -27,13 +27,13 @@ vernier_grids = False                           # if true, verniers come in grid
 # 'dense_large' = two fc encoder layers, one bottleneck layer and two fc decoder layers
 # 'conv' = two conv layers followed by a dense layer.
 # 'caps' = a conv layer, a primary caps layer and a secondary caps layer.
-# 'conv-deconv' = 3 conv laywer + pooling, then a dense bottleneck, then 3 upscaling layer as a decoder (no real deconv)
+# 'conv_large' = 3 conv laywer + pooling, then a dense bottleneck, then 3 upscaling layer as a decoder (no real deconv)
 
 model_type = 'caps'
 
 if model_type is 'dense':
     n_hidden_units_max = 128
-elif model_type is 'dense_large':
+elif model_type is 'large_dense':
     n_neurons1 = 50
     n_neurons2 = 50
     n_hidden_units_max = 128
@@ -102,4 +102,3 @@ n_epochs = 10
 n_steps = 2**15//batch_size*n_epochs
 eval_steps = 10  # number of of steps for which to evaluate model
 eval_throttle_secs = 100000  # number of seconds after which to evaluate model
-

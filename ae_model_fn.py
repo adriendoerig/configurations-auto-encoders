@@ -1,13 +1,13 @@
 from capsule_functions import *
 from parameters import *
 
-def model_fn(images, bottleneck_units, mode, LOGDIR, params):
+def model_fn(features, bottleneck_units, mode, LOGDIR, params):
     # images:   Our data
     # mode:     Either TRAIN, EVAL, or PREDICT
     # params:   Optional parameters; here not needed because of parameter-file
 
     # placeholder for input images
-    X = tf.placeholder(shape=[None, im_size[0], im_size[1], 1], dtype=tf.float32, name="X")
+    X = features['images']
     x_image = tf.reshape(X, [-1, im_size[0], im_size[1], 1])
     tf.summary.image('input', x_image, 6)
 

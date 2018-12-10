@@ -29,7 +29,7 @@ logging.getLogger().setLevel(logging.INFO)
 
 
 ##################################
-#    Training and evaluation:    #
+#    Training:                   #
 ##################################
 
 
@@ -40,8 +40,6 @@ elif model_type is 'large_conv':
     chosen_n_units = range(1, bottleneck_features_max + 1)
 else:
     chosen_n_units = range(8, n_hidden_units_max + 1, 4)
-
-final_losses_order_all = np.zeros(shape=(len(chosen_n_units), 2**15))
 
 for n_hidden_units in chosen_n_units:
 
