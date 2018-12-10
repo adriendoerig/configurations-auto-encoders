@@ -54,7 +54,7 @@ for n_hidden_units in chosen_n_units:
         checkpoint_path = LOGDIR + '/checkpoint.ckpt'
 
     # Create the estimator:
-    ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR}, model_dir=checkpoint_path)
+    ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR}, model_dir=LOGDIR)
     train_spec = tf.estimator.TrainSpec(input_fn, max_steps=n_steps)
     eval_spec = tf.estimator.EvalSpec(input_fn, steps=eval_steps, throttle_secs=eval_throttle_secs)
 

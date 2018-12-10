@@ -36,7 +36,7 @@ else:
     dataset = np.load('./dataset.npy')
 
 def input_fn_pred(batch):
-    return batch
+    return {'images': tf.convert_to_tensor(batch)}
 
 
 ########################################################################################################################
@@ -67,14 +67,14 @@ if not os._exists('./results/' + model_type + '_final_losses_order_all'):
             checkpoint_path = LOGDIR + '/checkpoint.ckpt'
 
         # Create the estimator:
-        ae = tf.estimator.Estimator(model_fn=model_fn, model_dir=LOGDIR)
+        ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR}, model_dir=LOGDIR)
 
         # Get losses and reconstructed images for each stimulus
         n_trials = 10
         n_batches = 2 ** 15 // batch_size
         final_losses = np.zeros(shape=(n_trials, 2**15))
         final_reconstructions = np.zeros(shape=(2**15, im_size[0], im_size[1], 1))
-        for batch in n_batches:
+        for batch in range(n_batches):
             for trial in range(n_trials):
                 this_batch = dataset[batch * batch_size:batch * batch_size + batch_size, :, :, :] + np.random.normal(0, late_noise, size=dataset[batch * batch_size:batch * batch_size + batch_size, :, :, :].shape)
                 ae_out = list(ae.predict(input_fn=lambda: input_fn_pred(this_batch), checkpoint_path=checkpoint_path))
