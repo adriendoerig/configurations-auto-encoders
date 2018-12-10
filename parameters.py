@@ -29,7 +29,7 @@ vernier_grids = False                           # if true, verniers come in grid
 # 'caps' = a conv layer, a primary caps layer and a secondary caps layer.
 # 'conv_large' = 3 conv laywer + pooling, then a dense bottleneck, then 3 upscaling layer as a decoder (no real deconv)
 
-model_type = 'caps'
+model_type = 'large_caps'
 
 if model_type is 'dense':
     n_hidden_units_max = 128
@@ -55,7 +55,7 @@ elif model_type is 'conv':
 elif model_type is 'large_conv':
     # cf https://github.com/mchablani/deep-learning/blob/master/autoencoder/Convolutional_Autoencoder.ipynb
     bottleneck_features_max = 8
-elif model_type is ('caps' or 'large_caps'):
+elif model_type is 'caps' or model_type is 'large_caps':
     # conv layers
     activation_function = tf.nn.elu
     conv1_params = {"filters": 64,

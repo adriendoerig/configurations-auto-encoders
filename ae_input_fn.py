@@ -16,17 +16,12 @@ def parse_tfrecords(serialized_data):
 
     # Parse the serialized data so we get a dict with our data.
     parsed_data = tf.parse_single_example(serialized=serialized_data, features=features)
-    images = parsed_data['shape_images']
+    images = parsed_data['shape']
     images = tf.decode_raw(images, tf.float32)
     images = tf.cast(images, tf.float32)
 
     # Reshaping:
     images = tf.reshape(images, [im_size[0], im_size[1], 1])
-
-    # Get rid of extra-dimension:
-    print(images)
-    images = tf.squeeze(images, axis=0)
-    print(images)
 
     return images
 
@@ -34,7 +29,7 @@ def parse_tfrecords(serialized_data):
 ###########################
 #     Input function:     #
 ###########################
-def input_fn(filenames, buffer_size=1024):
+def input_fn_train(filenames, buffer_size=1024):
     # Create a TensorFlow Dataset-object:
     dataset = tf.data.TFRecordDataset(filenames=filenames, num_parallel_reads=32)
 
@@ -68,5 +63,5 @@ def input_fn(filenames, buffer_size=1024):
 #   Final input functions:   #
 ##############################
 def input_fn():
-    return input_fn(filenames=tfrecords_path)
+    return input_fn_train(filenames=tfrecords_path)
 

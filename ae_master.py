@@ -34,7 +34,8 @@ logging.getLogger().setLevel(logging.INFO)
 
 
 # we will do a loop over many diffent number of hidden units
-if model_type is ('caps' or 'large_caps'):  # we don't use ALL n_hidden_units. Here, choose which ones to use.
+if model_type is 'caps' or model_type is 'large_caps':
+    # we don't use ALL n_hidden_units. Here, choose which ones to use.
     chosen_n_units = range(1, n_hidden_units_max + 1)
 elif model_type is 'large_conv':
     chosen_n_units = range(1, bottleneck_features_max + 1)

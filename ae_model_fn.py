@@ -122,7 +122,7 @@ def model_fn(features, labels, mode, params):
                 loss = tf.reduce_mean(all_losses, name='loss')
                 tf.summary.scalar('loss', loss)
 
-    elif model_type is ('caps' or 'caps_large'):
+    elif model_type is 'caps' or model_type is 'large_caps':
         with tf.name_scope('caps_auto_encoder'):
             with tf.name_scope('neurons'):
                 conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
@@ -137,7 +137,7 @@ def model_fn(features, labels, mode, params):
                 caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, params['bottleneck_units'], caps2_n_dims,
                                              rba_rounds)
                 caps2_flat = tf.reshape(caps2, [-1, params['bottleneck_units'] * caps2_n_dims])
-                if model_type is 'caps_large':
+                if model_type is 'large_caps':
                     dense1 = tf.layers.dense(caps2_flat, n_neurons1, name='decoder_hidden1')
                     dense2 = tf.layers.dense(dense1, n_neurons2, name='decoder_hidden2')
                     X_reconstructed = tf.layers.dense(dense2, im_size[0] * im_size[1], name='reconstruction')
