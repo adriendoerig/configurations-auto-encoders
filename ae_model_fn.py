@@ -153,7 +153,8 @@ def model_fn(features, labels, mode, params):
                 tf.summary.scalar('loss', loss)
 
     elif model_type is 'VAE':
-        tfd = tf.contrib.distributions
+        import tensorflow_probability as tfp
+        tfd = tfp.distributions
 
         def make_encoder(data, code_size):
             x = tf.layers.flatten(data, name='flatten')
@@ -174,7 +175,7 @@ def model_fn(features, labels, mode, params):
             x = tf.layers.dense(x, n_neurons2, tf.nn.relu, name='decoder_dense2')
             logit = tf.layers.dense(x, np.prod(data_shape), name='decoder_logit')
             logit = tf.reshape(logit, [-1] + data_shape, name='reshapes_decoder_logit')
-            return tfd.Independent(tfd.Bernoulli(logit), 2, name='decoded distribution')
+            return tfd.Independent(tfd.Bernoulli(logit), 3, name='decoded_distribution')
 
         make_encoder = tf.make_template('encoder', make_encoder)
         make_decoder = tf.make_template('decoder', make_decoder)
@@ -190,11 +191,10 @@ def model_fn(features, labels, mode, params):
             likelihood = make_decoder(code, [im_size[0], im_size[1], 1]).log_prob(X)
             divergence = tfd.kl_divergence(posterior, prior)
             all_losses = likelihood - beta * divergence
-            print('careful here: correct shapes???')
-            print('all_losses shape: ' + str(all_losses))
             loss = -tf.reduce_mean(all_losses)
-            print('loss shape: ' + str(loss))
-
+        with tf.name_scope('sample_generator'):
+            samples = make_decoder(prior.sample(10), [im_size[0], im_size[1], 1]).mean()
+            tf.summary.image('samples', samples, 6)
 
     # optimizer and and training operation
     with tf.name_scope('optimizer_and_training'):
