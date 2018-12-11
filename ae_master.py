@@ -47,10 +47,8 @@ for n_hidden_units in chosen_n_units:
     ### LOGDIR  ###
     if in_cloud:
         LOGDIR = 'gs://autoencoders-data/' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
-        checkpoint_path = LOGDIR + '/'
     else:
         LOGDIR = './' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
-        checkpoint_path = LOGDIR + '/'
 
     # Create the estimator:
     ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR}, model_dir=LOGDIR)

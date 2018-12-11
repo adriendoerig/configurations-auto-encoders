@@ -1,7 +1,7 @@
 
 # Class to make a batch
 
-import numpy, random, matplotlib.pyplot as plt
+import numpy as np, random, matplotlib.pyplot as plt
 from skimage import draw
 from scipy.ndimage import zoom
 from datetime import datetime
@@ -21,21 +21,21 @@ def clipped_zoom(img, zoom_factor, **kwargs):
     if zoom_factor < 1:
 
         # Bounding box of the zoomed-out image within the output array
-        zh = int(numpy.round(h * zoom_factor))
-        zw = int(numpy.round(w * zoom_factor))
+        zh = int(np.round(h * zoom_factor))
+        zw = int(np.round(w * zoom_factor))
         top = (h - zh) // 2
         left = (w - zw) // 2
 
         # Zero-padding
-        out = numpy.zeros_like(img)
+        out = np.zeros_like(img)
         out[top:top+zh, left:left+zw] = zoom(img, zoom_tuple, **kwargs)
 
     # Zooming in
     elif zoom_factor > 1:
 
         # Bounding box of the zoomed-in region within the input array
-        zh = int(numpy.round(h / zoom_factor))
-        zw = int(numpy.round(w / zoom_factor))
+        zh = int(np.round(h / zoom_factor))
+        zw = int(np.round(w / zoom_factor))
         top = (h - zh) // 2
         left = (w - zw) // 2
 
@@ -56,17 +56,17 @@ def clipped_zoom(img, zoom_factor, **kwargs):
 def computeMeanAndStd(self, shapeTypes, batchSize=100, n_shapes=1, noiseLevel=0.0, max_rows=1, max_cols=3):
     # compute mean and std over a large batch. May be used to apply the same normalization to all images (cf. make_tf_dataset.py)
 
-    batchImages = numpy.zeros(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
-    batchSingleShapeImages = numpy.zeros(shape=(batchSize, self.imSize[0], self.imSize[1], n_shapes),
-                                         dtype=numpy.float32)
+    batchImages = np.zeros(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=np.float32)
+    batchSingleShapeImages = np.zeros(shape=(batchSize, self.imSize[0], self.imSize[1], n_shapes),
+                                         dtype=np.float32)
 
     for n in range(batchSize):
-        shapes = numpy.random.permutation(len(shapeTypes))[:n_shapes]
+        shapes = np.random.permutation(len(shapeTypes))[:n_shapes]
 
         for shape in range(n_shapes):
             if shapes[shape] == 0:  # 1/len(shapeTypes):
                 thisOffset = random.randint(0, 1)
-                batchSingleShapeImages[n, :, :, shape] = self.drawStim(False, shapeMatrix=[0], offset=thisOffset, offset_size=random.randint(1, int(self.barHeight / 2.0))) + numpy.random.normal(0, noiseLevel, size=self.imSize)
+                batchSingleShapeImages[n, :, :, shape] = self.drawStim(False, shapeMatrix=[0], offset=thisOffset, offset_size=random.randint(1, int(self.barHeight / 2.0))) + np.random.normal(0, noiseLevel, size=self.imSize)
                 batchImages[n, :, :] += batchSingleShapeImages[n, :, :, shape]
 
             else:
@@ -74,12 +74,12 @@ def computeMeanAndStd(self, shapeTypes, batchSize=100, n_shapes=1, noiseLevel=0.
                 shapeType = shapeTypes[thisType]
                 nRows = random.randint(1, max_rows)
                 nCols = random.randint(1, max_cols)
-                shapeConfig = shapeType * numpy.ones((nRows, nCols))
-                batchSingleShapeImages[n, :, :, shape] = self.drawStim(0, shapeConfig) + numpy.random.normal(0, noiseLevel, size=self.imSize)
+                shapeConfig = shapeType * np.ones((nRows, nCols))
+                batchSingleShapeImages[n, :, :, shape] = self.drawStim(0, shapeConfig) + np.random.normal(0, noiseLevel, size=self.imSize)
                 batchImages[n, :, :] += batchSingleShapeImages[n, :, :, shape]
 
-    batchMean = numpy.mean(batchImages)
-    batchStd = numpy.std(batchImages)
+    batchMean = np.mean(batchImages)
+    batchStd = np.std(batchImages)
 
     return batchMean, batchStd
 
@@ -104,7 +104,7 @@ class StimMaker:
     def drawSquare(self):
 
         resizeFactor = 1.2
-        patch = numpy.zeros((self.shapeSize, self.shapeSize))
+        patch = np.zeros((self.shapeSize, self.shapeSize))
 
         firstRow = int((self.shapeSize - self.shapeSize/resizeFactor)/2)
         firstCol = firstRow
@@ -122,13 +122,13 @@ class StimMaker:
 
         resizeFactor = 1.01
         radius = self.shapeSize/(2*resizeFactor)
-        patch  = numpy.zeros((self.shapeSize, self.shapeSize))
+        patch  = np.zeros((self.shapeSize, self.shapeSize))
         center = (int(self.shapeSize/2)-1, int(self.shapeSize/2)-1) # due to discretization, you maybe need add or remove 1 to center coordinates to make it look nice
 
         for row in range(self.shapeSize):
             for col in range(self.shapeSize):
 
-                distance = numpy.sqrt((row-center[0])**2 + (col-center[1])**2)
+                distance = np.sqrt((row-center[0])**2 + (col-center[1])**2)
                 if radius-self.barWidth < distance < radius:
                     patch[row, col] = random.uniform(1-random_pixels, 1+random_pixels)
 
@@ -138,7 +138,7 @@ class StimMaker:
     def drawPolygon(self, nSides, phi):
 
         resizeFactor = 1.0
-        patch  = numpy.zeros((self.shapeSize, self.shapeSize))
+        patch  = np.zeros((self.shapeSize, self.shapeSize))
         center = (int(self.shapeSize/2), int(self.shapeSize/2))
         radius = self.shapeSize/(2*resizeFactor)
 
@@ -147,10 +147,10 @@ class StimMaker:
         rowIntVertices = []
         colIntVertices = []
         for n in range(nSides):
-            rowExtVertices.append( radius               *numpy.sin(2*numpy.pi*n/nSides + phi) + center[0])
-            colExtVertices.append( radius               *numpy.cos(2*numpy.pi*n/nSides + phi) + center[1])
-            rowIntVertices.append((radius-self.barWidth)*numpy.sin(2*numpy.pi*n/nSides + phi) + center[0])
-            colIntVertices.append((radius-self.barWidth)*numpy.cos(2*numpy.pi*n/nSides + phi) + center[1])
+            rowExtVertices.append( radius               *np.sin(2*np.pi*n/nSides + phi) + center[0])
+            colExtVertices.append( radius               *np.cos(2*np.pi*n/nSides + phi) + center[1])
+            rowIntVertices.append((radius-self.barWidth)*np.sin(2*np.pi*n/nSides + phi) + center[0])
+            colIntVertices.append((radius-self.barWidth)*np.cos(2*np.pi*n/nSides + phi) + center[1])
 
         RR, CC = draw.polygon(rowExtVertices, colExtVertices)
         rr, cc = draw.polygon(rowIntVertices, colIntVertices)
@@ -163,7 +163,7 @@ class StimMaker:
     def drawStar(self, nTips, ratio, phi):
 
         resizeFactor = 0.8
-        patch  = numpy.zeros((self.shapeSize, self.shapeSize))
+        patch  = np.zeros((self.shapeSize, self.shapeSize))
         center = (int(self.shapeSize/2), int(self.shapeSize/2))
         radius = self.shapeSize/(2*resizeFactor)
 
@@ -177,10 +177,10 @@ class StimMaker:
             if not n%2:
                 thisRadius = radius/ratio
 
-            rowExtVertices.append(max(min( thisRadius               *numpy.sin(2*numpy.pi*n/(2*nTips) + phi) + center[0], self.shapeSize), 0.0))
-            colExtVertices.append(max(min( thisRadius               *numpy.cos(2*numpy.pi*n/(2*nTips) + phi) + center[1], self.shapeSize), 0.0))
-            rowIntVertices.append(max(min((thisRadius-self.barWidth)*numpy.sin(2*numpy.pi*n/(2*nTips) + phi) + center[0], self.shapeSize), 0.0))
-            colIntVertices.append(max(min((thisRadius-self.barWidth)*numpy.cos(2*numpy.pi*n/(2*nTips) + phi) + center[1], self.shapeSize), 0.0))
+            rowExtVertices.append(max(min( thisRadius               *np.sin(2*np.pi*n/(2*nTips) + phi) + center[0], self.shapeSize), 0.0))
+            colExtVertices.append(max(min( thisRadius               *np.cos(2*np.pi*n/(2*nTips) + phi) + center[1], self.shapeSize), 0.0))
+            rowIntVertices.append(max(min((thisRadius-self.barWidth)*np.sin(2*np.pi*n/(2*nTips) + phi) + center[0], self.shapeSize), 0.0))
+            colIntVertices.append(max(min((thisRadius-self.barWidth)*np.cos(2*np.pi*n/(2*nTips) + phi) + center[1], self.shapeSize), 0.0))
 
         RR, CC = draw.polygon(rowExtVertices, colExtVertices)
         rr, cc = draw.polygon(rowIntVertices, colIntVertices)
@@ -195,7 +195,7 @@ class StimMaker:
         if repeatShape:
             random.seed(1)
 
-        patch  = numpy.zeros((self.shapeSize, self.shapeSize))
+        patch  = np.zeros((self.shapeSize, self.shapeSize))
         center = (int(self.shapeSize/2), int(self.shapeSize/2))
         angle  = 0  # first vertex is at angle 0
 
@@ -203,19 +203,19 @@ class StimMaker:
         colExtVertices = []
         rowIntVertices = []
         colIntVertices = []
-        while angle < 2*numpy.pi:
+        while angle < 2*np.pi:
 
-            if numpy.pi/4 < angle < 3*numpy.pi/4 or 5*numpy.pi/4 < angle < 7*numpy.pi/4:
+            if np.pi/4 < angle < 3*np.pi/4 or 5*np.pi/4 < angle < 7*np.pi/4:
                 radius = (random.random()+2.0)/3.0*self.shapeSize/2
             else:
                 radius = (random.random()+1.0)/2.0*self.shapeSize/2
 
-            rowExtVertices.append( radius               *numpy.sin(angle) + center[0])
-            colExtVertices.append( radius               *numpy.cos(angle) + center[1])
-            rowIntVertices.append((radius-self.barWidth)*numpy.sin(angle) + center[0])
-            colIntVertices.append((radius-self.barWidth)*numpy.cos(angle) + center[1])
+            rowExtVertices.append( radius               *np.sin(angle) + center[0])
+            colExtVertices.append( radius               *np.cos(angle) + center[1])
+            rowIntVertices.append((radius-self.barWidth)*np.sin(angle) + center[0])
+            colIntVertices.append((radius-self.barWidth)*np.cos(angle) + center[1])
 
-            angle += (random.random()+0.5)*(2*numpy.pi/nSidesRough)
+            angle += (random.random()+0.5)*(2*np.pi/nSidesRough)
 
         RR, CC = draw.polygon(rowExtVertices, colExtVertices)
         rr, cc = draw.polygon(rowIntVertices, colIntVertices)
@@ -230,11 +230,11 @@ class StimMaker:
 
     def drawStuff(self, nLines):
 
-        patch  = numpy.zeros((self.shapeSize, self.shapeSize))
+        patch  = np.zeros((self.shapeSize, self.shapeSize))
 
         for n in range(nLines):
 
-            (r1, c1, r2, c2) = numpy.random.randint(self.shapeSize, size=4)
+            (r1, c1, r2, c2) = np.random.randint(self.shapeSize, size=4)
             rr, cc = draw.line(r1, c1, r2, c2)
             patch[rr, cc] = random.uniform(1-random_pixels, 1+random_pixels)
 
@@ -245,17 +245,17 @@ class StimMaker:
 
         if offset_size is None:
             offset_size = random.randint(1, int(self.barHeight/2.0))
-        patch = numpy.zeros((2*self.barHeight+self.offsetHeight, 2*self.barWidth+offset_size))
+        patch = np.zeros((2*self.barHeight+self.offsetHeight, 2*self.barWidth+offset_size))
         patch[0:self.barHeight, 0:self.barWidth] = 1.0
         patch[self.barHeight+self.offsetHeight:, self.barWidth+offset_size:] = random.uniform(1-random_pixels, 1+random_pixels)
 
         if offset is None:
             if random.randint(0, 1):
-                patch = numpy.fliplr(patch)
+                patch = np.fliplr(patch)
         elif offset == 1:
-            patch = numpy.fliplr(patch)
+            patch = np.fliplr(patch)
 
-        fullPatch = numpy.zeros((self.shapeSize, self.shapeSize))
+        fullPatch = np.zeros((self.shapeSize, self.shapeSize))
         firstRow  = int((self.shapeSize-patch.shape[0])/2)
         firstCol  = int((self.shapeSize-patch.shape[1])/2)
         fullPatch[firstRow:firstRow+patch.shape[0], firstCol:firstCol+patch.shape[1]] = patch
@@ -274,35 +274,37 @@ class StimMaker:
         if shapeID == 3:
             patch = self.drawPolygon(6, 0)
         if shapeID == 4:
-            patch = self.drawPolygon(8, numpy.pi/8)
+            patch = self.drawPolygon(8, np.pi/8)
         if shapeID == 5:
             patch = self.drawStar(4, 1.8, 0)
         if shapeID == 6:
-            patch = self.drawStar(7, 1.7, -numpy.pi/14)
+            patch = self.drawStar(7, 1.7, -np.pi/14)
         if shapeID == 7:
             patch = self.drawIrreg(15, False)
         if shapeID == 8:
             patch = self.drawIrreg(15, True)
         if shapeID == 9:
             patch = self.drawStuff(5)
+        if shapeID == 10:
+            patch = self.drawPolygon(6, 0)
 
         return patch
 
 
     def drawStim(self, vernier, shapeMatrix, offset=None, offset_size=None, fixed_position=None):
 
-        image        = numpy.zeros(self.imSize)
+        image        = np.zeros(self.imSize)
         critDist     = 0 # int(self.shapeSize/6)
         padDist      = 0 #int(self.shapeSize/6)
-        shapeMatrix  = numpy.array(shapeMatrix)
+        shapeMatrix  = np.array(shapeMatrix)
 
         if len(shapeMatrix.shape) < 2:
-            shapeMatrix = numpy.expand_dims(shapeMatrix, axis=0)
+            shapeMatrix = np.expand_dims(shapeMatrix, axis=0)
 
         if shapeMatrix.all() == None:  # this means we want only a vernier
-            patch = numpy.zeros((self.shapeSize+5, self.shapeSize+5))
+            patch = np.zeros((self.shapeSize+5, self.shapeSize+5))
         else:
-            patch = numpy.zeros((shapeMatrix.shape[0]*self.shapeSize + (shapeMatrix.shape[0]-1)*critDist + 1,
+            patch = np.zeros((shapeMatrix.shape[0]*self.shapeSize + (shapeMatrix.shape[0]-1)*critDist + 1,
                                  shapeMatrix.shape[1]*self.shapeSize + (shapeMatrix.shape[1]-1)*critDist + 1))
 
             for row in range(shapeMatrix.shape[0]):
@@ -344,17 +346,17 @@ class StimMaker:
 
     def makeConfigBatch(self, batchSize, configMatrix, doVernier = False, noiseLevel=0.0, normalize=False, normalize_sets=False, fixed_position=None, vernierLabelEncoding='nothinglr_012', random_size=False):
 
-        batchImages   = numpy.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=numpy.float32)
-        vernierLabels = numpy.zeros(batchSize, dtype=numpy.float32)
+        batchImages   = np.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=np.float32)
+        vernierLabels = np.zeros(batchSize, dtype=np.float32)
 
         for n in range(batchSize):
 
             offset = random.randint(0, 1)
-            batchImages[n, :, :] = self.drawStim(doVernier, shapeMatrix=configMatrix, fixed_position=fixed_position, offset=offset) + numpy.random.normal(0, noiseLevel, size=self.imSize)
+            batchImages[n, :, :] = self.drawStim(doVernier, shapeMatrix=configMatrix, fixed_position=fixed_position, offset=offset) + np.random.normal(0, noiseLevel, size=self.imSize)
             if normalize:
                 # batchImages[batchImages < 0] = 0
                 # batchImages[batchImages > 0.2] = 1
-                batchImages[n, :, :] = (batchImages[n, :, :] - numpy.mean(batchImages[n, :, :])) / numpy.std(batchImages[n, :, :])**vernier_normalization_exp
+                batchImages[n, :, :] = (batchImages[n, :, :] - np.mean(batchImages[n, :, :])) / np.std(batchImages[n, :, :])**vernier_normalization_exp
             if vernierLabelEncoding is 'nothinglr_012':
                 vernierLabels[n] = -offset + 2
             elif vernierLabelEncoding is 'lr_01':
@@ -363,14 +365,14 @@ class StimMaker:
             if random_size:
                 zoom_factor = random.uniform(0.8, 1.2)
                 tempImage = clipped_zoom(batchImages[n, :, :], zoom_factor)
-                tempImage[tempImage == 0] = -numpy.mean(tempImage)  # because when using random_sizes, small images get padded with 0 but the background may be <= because of normalization
+                tempImage[tempImage == 0] = -np.mean(tempImage)  # because when using random_sizes, small images get padded with 0 but the background may be <= because of normalization
                 if tempImage.shape == batchImages[n, :, :].shape:
                     batchImages[n, :, :] = tempImage
 
         if normalize_sets:
             batchImages = (batchImages - self.mean) / self.std
 
-        batchImages = numpy.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
+        batchImages = np.expand_dims(batchImages, -1)  # need to a a fourth dimension for tensorflow
 
         return batchImages, vernierLabels
 
@@ -384,17 +386,17 @@ class StimMaker:
             plt.figure()
             plt.imshow(batchImages[n, :, :, 0])
             plt.title('Label, mean, stdev = ' + str(batchLabels[n]) + ', ' + str(
-                numpy.mean(batchImages[n, :, :, 0])) + ', ' + str(numpy.std(batchImages[n, :, :, 0])))
+                np.mean(batchImages[n, :, :, 0])) + ', ' + str(np.std(batchImages[n, :, :, 0])))
             plt.show()
 
 
 
 if __name__ == "__main__":
 
-    other_shape_ID = 2  # there will be squares and this shape in the array
+    other_shape_ID = 10  # there will be squares and this shape in the array
     rufus = StimMaker((50, 83), 16, 1)
-    stim_matrix = numpy.random.randint(2, size=(3,5))*(other_shape_ID-1) + 1
+    stim_matrix = np.random.randint(2, size=(3,5))*(other_shape_ID-1) + 1
     stim_matrix[1, 2] = 1
 
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
-    rufus.showBatch(1, stim_matrix, stim_matrix)
+    rufus.showBatch(1, stim_matrix, noise_level)

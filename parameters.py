@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 ### set to 1 if running in the cloud (will change data/saving path names accordingly) ###
-in_cloud = 0
+in_cloud = 1
 
 ### stimulus params ###
 im_size = (50, 83)                             # size of full image
@@ -29,7 +29,7 @@ vernier_grids = False                           # if true, verniers come in grid
 # 'caps' = a conv layer, a primary caps layer and a secondary caps layer.
 # 'conv_large' = 3 conv laywer + pooling, then a dense bottleneck, then 3 upscaling layer as a decoder (no real deconv)
 
-model_type = 'large_conv'
+model_type = 'large_caps'
 
 if model_type is 'dense':
     n_hidden_units_max = 128

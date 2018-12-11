@@ -29,7 +29,7 @@ def parse_tfrecords(serialized_data):
 ###########################
 #     Input function:     #
 ###########################
-def input_fn_train(filenames, buffer_size=1024):
+def input_fn_train(filenames, buffer_size=2**15):
     # Create a TensorFlow Dataset-object:
     dataset = tf.data.TFRecordDataset(filenames=filenames, num_parallel_reads=32)
 
