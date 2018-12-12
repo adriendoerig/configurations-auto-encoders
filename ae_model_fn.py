@@ -132,7 +132,6 @@ def model_fn(features, labels, mode, params):
                                     int((conv1_height - conv_caps_params["kernel_size"]) / conv_caps_params[
                                         "strides"] + 1)))
                 caps1 = primary_caps_layer(conv1, caps1_n_caps, caps1_n_dims, **conv_caps_params)
-                print(params['bottleneck_units'])
                 caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, params['bottleneck_units'], caps2_n_dims,
                                              rba_rounds)
                 caps2_flat = tf.reshape(caps2, [-1, params['bottleneck_units'] * caps2_n_dims])
@@ -153,7 +152,8 @@ def model_fn(features, labels, mode, params):
                 tf.summary.scalar('loss', loss)
 
     elif model_type is 'VAE':
-        tfd = tf.contrib.distributions
+        import tensorflow_probability as tfp
+        tfd = tfp.distributions
 
         def make_encoder(data, code_size):
             x = tf.layers.flatten(data, name='flatten')

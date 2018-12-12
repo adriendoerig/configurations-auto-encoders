@@ -4,7 +4,7 @@ My script for the input fn using tfrecords files (good for estimators)
 """
 
 import tensorflow as tf
-from parameters import im_size, n_epochs, batch_size, tfrecords_path
+from parameters import im_size, n_epochs, batch_size, tfrecords_path_train
 
 
 ########################################
@@ -63,5 +63,5 @@ def input_fn_train(filenames, buffer_size=2**15):
 #   Final input functions:   #
 ##############################
 def input_fn():
-    return input_fn_train(filenames=tfrecords_path)
+    return input_fn_train(filenames=tfrecords_path_train)
 

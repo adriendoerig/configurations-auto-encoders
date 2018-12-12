@@ -10,7 +10,7 @@ import tensorflow as tf
 import itertools
 import numpy as np
 from batchMaker import StimMaker
-from parameters import im_size, shape_size, bar_width, other_shape_ID, noise_level, tfrecords_path
+from parameters import im_size, shape_size, bar_width, other_shape_ID, noise_level, tfrecords_path_train, tfrecords_path_test
 
 
 ##################################
@@ -26,25 +26,37 @@ def wrap_bytes(value):
 ##################################
 #      tfrecords function:       #
 ##################################
-def make_tfrecords():
+def make_tfrecords(set_type):
     '''Function to create tfrecord files based on stim_maker class'''
-    # Inputs:
-    # noise: noise level
-    # out_path: where to save
+    # set_type = 'train' or 'test'
 
-    print("\nConverting: " + tfrecords_path)
+    if set_type is 'train':
+        save_path = tfrecords_path_train
+    elif set_type is 'test':
+        save_path = tfrecords_path_test
+    else:
+        raise ValueError('set_type must be "train" or "test"')
+
+    print("\nConverting: " + tfrecords_path_test)
 
     # Open a TFRecordWriter for the output-file.
-    with tf.python_io.TFRecordWriter(tfrecords_path) as writer:
+    with tf.python_io.TFRecordWriter(save_path) as writer:
 
         # Create images one by one using stimMaker and save them
         stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
         flat_matrices = np.array(list(itertools.product([0, 1], repeat=3 * 5)))
         matrices = np.reshape(flat_matrices, [-1, 3, 5])
+        n_matrices = 2**15
+        if set_type is 'test':
+            flat_matrices[:, 7] = 0
+            unique_flat_matrices = np.unique(flat_matrices, axis=0)
+            matrices = np.reshape(unique_flat_matrices, [-1, 3, 5])
+            matrices[:, 1, 2] = 0
+            n_matrices = 2**14
 
-        for i in range(2 ** 15):
+        for i in range(n_matrices):
             image, _ = stim_maker.makeConfigBatch(batchSize=1, configMatrix=matrices[i, :, :] * (other_shape_ID - 1) + 1, noiseLevel=noise_level, doVernier=False)
-            print("\rMaking dataset: {}/{} ({:.1f}%)".format(i, 2 ** 15, i * 100 / 2 ** 15), end="")
+            print("\rMaking dataset: {}/{} ({:.1f}%)".format(i, n_matrices, i * 100 / n_matrices), end="")
 
             # Convert the image to raw bytes.
             image_bytes = image.tostring()
@@ -66,4 +78,5 @@ def make_tfrecords():
     return
 
 
-make_tfrecords()
+# make_tfrecords('train')
+make_tfrecords('test')

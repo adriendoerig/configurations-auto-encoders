@@ -196,7 +196,7 @@ class StimMaker:
             random.seed(1)
 
         patch  = np.zeros((self.shapeSize, self.shapeSize))
-        center = (int(self.shapeSize/2), int(self.shapeSize/2))
+        center = (int(self.shapeSize/2-1), int(self.shapeSize/2-1))
         angle  = 0  # first vertex is at angle 0
 
         rowExtVertices = []
@@ -344,7 +344,7 @@ class StimMaker:
         plt.show()
 
 
-    def makeConfigBatch(self, batchSize, configMatrix, doVernier = False, noiseLevel=0.0, normalize=False, normalize_sets=False, fixed_position=None, vernierLabelEncoding='nothinglr_012', random_size=False):
+    def makeConfigBatch(self, batchSize, configMatrix, doVernier = False, noiseLevel=0.0, normalize=False, normalize_sets=False, fixed_position=fixed_stim_position, vernierLabelEncoding='nothinglr_012', random_size=False):
 
         batchImages   = np.ndarray(shape=(batchSize, self.imSize[0], self.imSize[1]), dtype=np.float32)
         vernierLabels = np.zeros(batchSize, dtype=np.float32)
@@ -377,10 +377,10 @@ class StimMaker:
         return batchImages, vernierLabels
 
 
-    def showBatch(self, batchSize, config, noiseLevel=0.0, normalize=False, fixed_position=None, vernierLabelEncoding='lr_01'):
+    def showBatch(self, batchSize, config, noiseLevel=0.0, normalize=False, fixed_position=fixed_stim_position, vernierLabelEncoding='lr_01'):
 
         # input a configuration to display
-        batchImages, batchLabels = self.makeConfigBatch(batchSize, config, doVernier=True, noiseLevel=noiseLevel, normalize=normalize, fixed_position=fixed_position, vernierLabelEncoding=vernierLabelEncoding)
+        batchImages, batchLabels = self.makeConfigBatch(batchSize, config, doVernier=False, noiseLevel=noiseLevel, normalize=normalize, fixed_position=fixed_position, vernierLabelEncoding=vernierLabelEncoding)
 
         for n in range(batchSize):
             plt.figure()
@@ -393,9 +393,9 @@ class StimMaker:
 
 if __name__ == "__main__":
 
-    other_shape_ID = 10  # there will be squares and this shape in the array
-    rufus = StimMaker((50, 83), 16, 1)
-    stim_matrix = np.random.randint(2, size=(3,5))*(other_shape_ID-1) + 1
+    other_shape_ID = 7  # there will be squares and this shape in the array
+    rufus = StimMaker((32, 52), 10, 1)
+    stim_matrix = np.random.randint(2, size=(3, 5))*(other_shape_ID-1) + 1
     stim_matrix[1, 2] = 1
 
     # rufus.plotStim(1, [[1, 2, 3], [4, 5, 6], [6, 7, 0]])
