@@ -29,7 +29,7 @@ vernier_grids = False                           # if true, verniers come in grid
 # 'caps' = a conv layer, a primary caps layer and a secondary caps layer.
 # 'conv_large' = 3 conv laywer + pooling, then a dense bottleneck, then 3 upscaling layer as a decoder (no real deconv)
 
-model_type = 'VAE'
+model_type = 'large_caps'
 
 if model_type is 'dense':
     n_hidden_units_max = 128
