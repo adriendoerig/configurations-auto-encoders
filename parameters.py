@@ -33,6 +33,8 @@ model_type = 'VAE'
 
 if model_type is 'dense':
     n_hidden_units_max = 128
+    if model_type is 'VAE_conv':
+        beta = 2
 elif model_type is 'large_dense':
     n_neurons1 = 50
     n_neurons2 = 50
@@ -80,16 +82,18 @@ elif model_type is 'caps' or model_type is 'large_caps':
     if model_type is 'large_caps':
         n_neurons1 = 50
         n_neurons2 = 50
-elif model_type is 'VAE':
+elif model_type is 'VAE' or 'VAE_conv':
     # cf. https://danijar.com/building-variational-auto-encoders-in-tensorflow/
     # and https://colab.research.google.com/drive/1Wl78KHPzQ2Q253Rob5W1o0bd8nu9DZel#scrollTo=zaCO7S0-_KNn&forceEdit=true&offline=true&sandboxMode=true
-    n_neurons1 = 50
-    n_neurons2 = 50
+    # good explanation https://jaan.io/what-is-variational-autoencoder-vae-tutorial/
+    if model_type is 'VAE':
+        n_neurons1 = 50
+        n_neurons2 = 50
     n_hidden_units_max = 128
-    beta = 4  # 1 -> no disentaglement >1 -> disentanglement
+    beta = 1  # 1 -> no disentaglement >1 -> disentanglement
 
 # learning rate
-learning_rate = .0001
+learning_rate = .00005
 
 ### training opts ###
 if in_cloud:
