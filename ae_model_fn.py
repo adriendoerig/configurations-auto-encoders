@@ -174,7 +174,7 @@ def model_fn(features, labels, mode, params):
             x = tf.layers.dense(x, n_neurons2, tf.nn.relu, name='decoder_dense2')
             logit = tf.layers.dense(x, np.prod(data_shape), name='decoder_logit')
             logit = tf.reshape(logit, [-1] + data_shape, name='reshapes_decoder_logit')
-            return tfd.Independent(tfd.Bernoulli(logit), 2, name='decoded distribution')
+            return tfd.Independent(tfd.Bernoulli(logit), 3, name='decoded_distribution')
 
         make_encoder = tf.make_template('encoder', make_encoder)
         make_decoder = tf.make_template('decoder', make_decoder)
@@ -190,11 +190,64 @@ def model_fn(features, labels, mode, params):
             likelihood = make_decoder(code, [im_size[0], im_size[1], 1]).log_prob(X)
             divergence = tfd.kl_divergence(posterior, prior)
             all_losses = likelihood - beta * divergence
-            print('careful here: correct shapes???')
-            print('all_losses shape: ' + str(all_losses))
             loss = -tf.reduce_mean(all_losses)
-            print('loss shape: ' + str(loss))
+            tf.summary.scalar('loss', loss)
+        with tf.name_scope('reconstructions'):
+            X_reconstructed_image = make_decoder(code, [im_size[0], im_size[1], 1]).mean()
+            tf.summary.image('reconstructions', X_reconstructed_image, 6)
 
+    elif model_type is 'VAE_conv':
+        import tensorflow_probability as tfp
+        tfd = tfp.distributions
+
+        def make_encoder(data, code_size):
+            conv1 = tf.layers.conv2d(inputs=data, filters=16, kernel_size=(5, 5), padding='same', activation=tf.nn.relu, name='conv1')  # Now 50x83x16
+            maxpool1 = tf.layers.max_pooling2d(conv1, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool1')  # Now 25x42x16
+            conv2 = tf.layers.conv2d(inputs=maxpool1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv2')  # Now 25x42x8
+            maxpool2 = tf.layers.max_pooling2d(conv2, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool2')  # Now 13x21/4x8
+            conv3 = tf.layers.conv2d(inputs=maxpool2, filters=params['bottleneck_units'], kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv3')  # Now 13x21xbottleneck_units
+            maxpool3 = tf.layers.max_pooling2d(conv3, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool3')  # Now 7x11xbottleneck_units
+            maxpool3_flat = tf.reshape(maxpool3, [-1, 7*11*params['bottleneck_units']])
+            loc = tf.layers.dense(maxpool3_flat, code_size, name='encoded_mu')
+            scale = tf.layers.dense(maxpool3_flat, code_size, tf.nn.softplus, name='encoded_sigma')
+            return tfd.MultivariateNormalDiag(loc, scale)
+
+        def make_prior(code_size):
+            loc = tf.zeros(code_size, name='prior_mu')
+            scale = tf.ones(code_size, name='prior_sigma')
+            return tfd.MultivariateNormalDiag(loc, scale, name='prior_distribution')
+
+        def make_decoder(code):
+            upsampled_code = tf.layers.dense(code, 7*11*params['bottleneck_units'], name='upsampled_code')  # (7,11) is the shape of the last maxpool(conv) layer in the encoder
+            reshaped_upsampled_code = tf.reshape(upsampled_code, [-1, 7, 11, params['bottleneck_units']], name='reshaped_upsampled_code')
+            upsample1 = tf.image.resize_images(reshaped_upsampled_code, size=(13, 21), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 13x21xbottleneck_units
+            conv4 = tf.layers.conv2d(inputs=upsample1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv4')  # Now 13x21x8
+            upsample2 = tf.image.resize_images(conv4, size=(25, 42), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 25x42x8
+            conv5 = tf.layers.conv2d(inputs=upsample2, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv5')  # Now 25x42x8
+            upsample3 = tf.image.resize_images(conv5, size=(50, 83), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 50x83x8
+            conv6 = tf.layers.conv2d(inputs=upsample3, filters=16, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv6')  # Now 50x83x16
+            logits = tf.layers.conv2d(inputs=conv6, filters=1, kernel_size=(3, 3), padding='same', activation=None, name='logits')  # Now 50x83x1
+            return tfd.Independent(tfd.Bernoulli(logits), 3, name='decoded_distribution')
+
+        make_encoder = tf.make_template('encoder', make_encoder)
+        make_decoder = tf.make_template('decoder', make_decoder)
+
+        # Define the model.
+        with tf.name_scope('prior'):
+            prior = make_prior(code_size=params['bottleneck_units'])
+        with tf.name_scope('encoder'):
+            posterior = make_encoder(X, code_size=params['bottleneck_units'])
+            code = posterior.sample()
+        # Define the loss.
+        with tf.name_scope('loss'):
+            likelihood = make_decoder(code).log_prob(X)
+            divergence = tfd.kl_divergence(posterior, prior)
+            all_losses = -likelihood + beta * divergence
+            loss = tf.reduce_mean(all_losses)
+            tf.summary.scalar('loss', loss)
+        with tf.name_scope('reconstructions'):
+            X_reconstructed_image = make_decoder(code).mean()
+            tf.summary.image('reconstructions', X_reconstructed_image, 6)
 
     # optimizer and and training operation
     with tf.name_scope('optimizer_and_training'):

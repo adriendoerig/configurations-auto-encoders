@@ -39,7 +39,7 @@ if model_type is 'caps' or model_type is 'large_caps':
 elif model_type is 'large_conv':
     chosen_n_units = range(1, bottleneck_features_max + 1)
 else:
-    chosen_n_units = range(8, n_hidden_units_max + 1, 4)
+    chosen_n_units = range(4, n_hidden_units_max + 1, 4)
 
 for n_hidden_units in chosen_n_units:
 
