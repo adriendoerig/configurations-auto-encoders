@@ -57,6 +57,13 @@ def input_fn_pred(batch):
     feed_dict = {'images': images}
     return feed_dict
 
+# we will do a loop over many diffent number of hidden units
+if model_type is 'caps' or model_type is 'large_caps':  # we don't use ALL n_hidden_units. Here, choose which ones to use.
+    chosen_n_units = range(1, n_hidden_units_max + 1)
+elif model_type is 'large_conv':
+    chosen_n_units = range(1, bottleneck_features_max + 1)
+else:
+    chosen_n_units = range(8, n_hidden_units_max + 1, 4)
 
 ########################################################################################################################
 # Classify the reconstructed images from best to worst
@@ -64,13 +71,6 @@ def input_fn_pred(batch):
 
 
 if not os._exists('./results/' + model_type + '_final_losses_order_all.npy'):
-    # we will do a loop over many diffent number of hidden units
-    if model_type is ('caps' or 'large_caps'):  # we don't use ALL n_hidden_units. Here, choose which ones to use.
-        chosen_n_units = range(1, n_hidden_units_max + 1)
-    elif model_type is 'large_conv':
-        chosen_n_units = range(1, bottleneck_features_max + 1)
-    else:
-        chosen_n_units = range(8, n_hidden_units_max + 1, 4)
 
     final_losses_order_all = np.zeros(shape=(len(chosen_n_units), n_matrices))
 
@@ -221,4 +221,4 @@ def plot_for_offset(data):
 for i in range(1, len(chosen_n_units)+1):
     print("\r{}/{} ({:.1f}%) ".format(i, len(chosen_n_units), i * 100 / len(chosen_n_units)), end="")
     imgs_for_gif.append(plot_for_offset(final_losses_order_all[:i, :]))
-imageio.mimsave('./results/' + model_type + '_mean_scores_evolving.gif', imgs_for_gif, fps=4)
+imageio.mimsave('./results/' + model_type + '_mean_scores_evolving.gif', imgs_for_gif, fps=2)
