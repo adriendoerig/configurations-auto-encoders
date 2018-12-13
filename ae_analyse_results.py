@@ -8,7 +8,11 @@ Uses the file to analyse the results.
 import os, itertools, imageio
 import matplotlib.pyplot as plt
 import numpy as np
-from parameters import *
+from parameters import use_these_params
+if use_these_params:
+    from parameters import *
+else:
+    from ae_master_all_models import *
 from ae_model_fn import model_fn
 from batchMaker import StimMaker
 tf.estimator.Estimator._validate_features_in_predict_input = lambda *args: None

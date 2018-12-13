@@ -5,8 +5,11 @@ in LOGDIR. The results are analysed in ae_make_final_losses.py and ae_analyse_re
 """
 
 import logging
-import numpy as np
-from parameters import *
+from parameters import use_these_params
+if use_these_params:
+    from parameters import *
+else:
+    from ae_master_all_models import *
 from ae_model_fn import model_fn
 from ae_input_fn import input_fn
 

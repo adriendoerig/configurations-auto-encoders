@@ -10,7 +10,11 @@ import tensorflow as tf
 import itertools
 import numpy as np
 from batchMaker import StimMaker
-from parameters import im_size, shape_size, bar_width, other_shape_ID, noise_level, tfrecords_path_train, tfrecords_path_test
+from parameters import use_these_params
+if use_these_params:
+    from parameters import im_size, shape_size, bar_width, other_shape_ID, noise_level, tfrecords_path_train, tfrecords_path_test
+else:
+    from ae_master_all_models import im_size, shape_size, bar_width, other_shape_ID, noise_level, tfrecords_path_train, tfrecords_path_test
 
 
 ##################################

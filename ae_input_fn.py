@@ -4,7 +4,11 @@ My script for the input fn using tfrecords files (good for estimators)
 """
 
 import tensorflow as tf
-from parameters import im_size, n_epochs, batch_size, tfrecords_path_train
+from parameters import use_these_params
+if use_these_params:
+    from parameters import im_size, n_epochs, batch_size, tfrecords_path_train
+else:
+    from ae_master_all_models import im_size, n_epochs, batch_size, tfrecords_path_train
 
 
 ########################################
