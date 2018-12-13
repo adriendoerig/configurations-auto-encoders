@@ -7,14 +7,14 @@ https://github.com/Hvass-Labs/TensorFlow-Tutorials/blob/master/18_TFRecords_Data
 """
 
 import tensorflow as tf
-import itertools
+import itertools, os
 import numpy as np
 from batchMaker import StimMaker
 from parameters import use_these_params
 if use_these_params:
     from parameters import im_size, shape_size, bar_width, other_shape_ID, noise_level, tfrecords_path_train, tfrecords_path_test
 else:
-    from ae_master_all_models import im_size, shape_size, bar_width, other_shape_ID, noise_level, tfrecords_path_train, tfrecords_path_test
+    from ae_master_all_models_params import im_size, shape_size, bar_width, other_shape_ID, noise_level, tfrecords_path_train
 
 
 ##################################
@@ -34,14 +34,15 @@ def make_tfrecords(set_type):
     '''Function to create tfrecord files based on stim_maker class'''
     # set_type = 'train' or 'test'
 
+    tf_records_path_test = './dataset_test.tfrecords'  # not used for now
     if set_type is 'train':
         save_path = tfrecords_path_train
+        print("\nConverting: " + tfrecords_path_train)
     elif set_type is 'test':
-        save_path = tfrecords_path_test
+        save_path = tf_records_path_test
+        print("\nConverting: " + tfrecords_path_test)
     else:
         raise ValueError('set_type must be "train" or "test"')
-
-    print("\nConverting: " + tfrecords_path_test)
 
     # Open a TFRecordWriter for the output-file.
     with tf.python_io.TFRecordWriter(save_path) as writer:
@@ -81,6 +82,6 @@ def make_tfrecords(set_type):
             writer.write(serialized)
     return
 
-
-# make_tfrecords('train')
-make_tfrecords('test')
+if not os.path.exists(tfrecords_path_train):
+    make_tfrecords('train')
+# make_tfrecords('test')

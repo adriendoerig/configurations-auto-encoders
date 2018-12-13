@@ -1,7 +1,9 @@
-import logging
+import logging, os
 import tensorflow as tf
 from ae_model_fn import model_fn
 from ae_input_fn import input_fn
+from ae_make_tfrecords import make_tfrecords
+from ae_master_all_models_params import *
 
 print('################################################################################################')
 print('CAREFUL!')
@@ -9,172 +11,51 @@ print('I REPEAT: CAREFUL!')
 print('SET USE_THESE_PARAMS=False IN PARAMETERS.PY')
 print('################################################################################################')
 
-
-### set to 1 if running in the cloud (will change data/saving path names accordingly) ###
-in_cloud = 0
-do_training = True
-do_analysis = True
-models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'large_caps', 'VAE', 'VAE_conv', 'alexnet_layer_1_3', 'alexnet_layer_1_5']
-
-### stimulus params ###
-im_size = (32, 52)                             # size of full image
-other_shape_ID = 7                              # there will be squares and this shape in the array
-shape_size = 10                                 # size of a single shape in pixels
-random_size = False                             # shape_size will vary around shape_size
-random_pixels = 0                               # stimulus pixels are drawn from random.uniform(1-random_pixels,1+random_pixels). So use 0 for deterministic stimuli. see batchMaker.py
-simultaneous_shapes = 1                         # number of different shapes in an image. NOTE: more than 2 is not supported at the moment
-bar_width = 1                                   # thickness of elements' bars
-noise_level = 0.05                               # add noise in dataset
-late_noise = 0.0                               # add noise to each batch
-shape_types = [0, 1, 2, 3, 4, 5, 6, 9]          # see batchMaker.drawShape for number-shape correspondences
-group_last_shapes = 1                           # attributes the same label to the last n shapeTypes
-fixed_stim_position = (1,1)                     # put top left corner of all stimuli at fixed_position
-normalize_images = False                        # make each image mean=0, std=1
-vernier_normalization_exp = 0                   # to give more importance to the vernier (see batchMaker). Use 0 for no effect. > 0  -> favour vernier during training
-normalize_sets = False                          # compute mean and std over 100 images and use this estimate to normalize each image
-max_rows, max_cols = 3, 5                       # max number of rows, columns of shape grids
-vernier_grids = False                           # if true, verniers come in grids like other shapes. Only single verniers otherwise.
-
-
-### training params ###
-if in_cloud:
-    tfrecords_path_train = 'gs://autoencoders-data/dataset_train_imsz_'+str(im_size[0])+str(im_size[1])+'.tfrecords'
-    tfrecords_path_test = 'gs://autoencoders-data/dataset_test_imsz_'+str(im_size[0])+str(im_size[1])+'.tfrecords'
-else:
-    tfrecords_path_train = './dataset_train_imsz_'+str(im_size[0])+str(im_size[1])+'.tfrecords'
-    tfrecords_path_test = './dataset_test_imsz_'+str(im_size[0])+str(im_size[1])+'.tfrecords'
-
-learning_rate = .00005
-batch_size = 64
-n_epochs = 10
-n_steps = 2 ** 15 // batch_size * n_epochs
-eval_steps = 10  # number of of steps for which to evaluate model
-eval_throttle_secs = 100000  # number of seconds after which to evaluate model
-
-### network params ###
-# 'dense' = single dense hidden layer.
-# 'dense_large' = two fc encoder layers, one bottleneck layer and two fc decoder layers
-# 'conv' = two conv layers followed by a dense layer.
-# 'caps' = a conv layer, a primary caps layer and a secondary caps layer.
-# 'conv_large' = 3 conv laywer + pooling, then a dense bottleneck, then 3 upscaling layer as a decoder (no real deconv)
-
 if do_training:
+
+    if not os.path.exists(tfrecords_path_train):
+        make_tfrecords('train')
+
     for model_type in models:
 
-        if model_type is 'dense':
-            n_hidden_units_max = 128
-        elif model_type is 'large_dense':
-            n_neurons1 = 50
-            n_neurons2 = 50
-            n_hidden_units_max = 128
-        elif model_type is 'conv':
-            conv_activation_function = tf.nn.elu
-            conv1_params = {"filters": 64,
-                            "kernel_size": 11,
-                            "strides": 1,
-                            "padding": "valid",
-                            "activation": conv_activation_function,
-                            }
-            conv2_params = {"filters": 64,
-                            "kernel_size": 10,
-                            "strides": 2,
-                            "padding": "valid",
-                            "activation": conv_activation_function,
-                            }
-            n_hidden_units_max = 128
-        elif model_type is 'large_conv':
-            # cf https://github.com/mchablani/deep-learning/blob/master/autoencoder/Convolutional_Autoencoder.ipynb
-            bottleneck_features_max = 8
-        elif model_type is 'caps' or model_type is 'large_caps':
-            # conv layers
-            activation_function = tf.nn.elu
-            conv1_params = {"filters": 64,
-                            "kernel_size": 11,
-                            "strides": 1,
-                            "padding": "valid",
-                            "activation": activation_function,
-                            }
-            # primary capsules
-            caps1_n_maps = 8  # number of capsules at level 1 of capsules
-            caps1_n_dims = 8  # number of dimension per capsule (note: 8*8=64 to have the same number of neurons as the convnet)
-            conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                                "kernel_size": 10,
-                                "strides": 2,
-                                "padding": "valid",
-                                "activation": activation_function,
-                                }
-            # output capsules
-            n_hidden_units_max = 10  # number of secondary capsules (note: 16*8=128 = Nbr of neurons than the convnet)
-            caps2_n_dims = 8  # of n dimensions
-            rba_rounds = 3
-            if model_type is 'large_caps':
-                n_neurons1 = 50
-                n_neurons2 = 50
-        elif model_type is 'VAE' or 'VAE_conv':
-            # cf. https://danijar.com/building-variational-auto-encoders-in-tensorflow/
-            # and https://colab.research.google.com/drive/1Wl78KHPzQ2Q253Rob5W1o0bd8nu9DZel#scrollTo=zaCO7S0-_KNn&forceEdit=true&offline=true&sandboxMode=true
-            # good explanation https://jaan.io/what-is-variational-autoencoder-vae-tutorial/
-            if model_type is 'VAE':
-                n_neurons1 = 50
-                n_neurons2 = 50
-            n_hidden_units_max = 128
-            beta = 1  # 1 -> no disentaglement >1 -> disentanglement
-        elif model_type is 'alexnet_layers_1_3' or model_type is 'alexnet_layers_1_5':
+        # we will do a loop over many diffent number of hidden units
+        if 'caps' in model_type:
+            n_hidden_units_max = 16  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
+            chosen_n_units =  range(1, n_hidden_units_max + 1)
+        elif 'alexnet' in model_type:
             n_hidden_units_max = 512
-            zoom = 3
-
+            chosen_n_units = range(32, n_hidden_units_max + 1, 32)
+        else:
+            n_hidden_units_max = 64
+            chosen_n_units = range(4, n_hidden_units_max + 1, 4)
 
         print('-------------------------------------------------------')
         print('TF version:', tf.__version__)
-        print('Starting encoder script...')
+        print('Starting autoencoder script...')
         print('-------------------------------------------------------')
 
-
-        ###########################
-        #      Preparations:      #
-        ###########################
         # For reproducibility:
         tf.reset_default_graph()
 
         # Output the loss in the terminal every few steps:
         logging.getLogger().setLevel(logging.INFO)
 
-
-        ##################################
-        #    Training:                   #
-        ##################################
-
-
-        # we will do a loop over many diffent number of hidden units
-        if model_type is 'caps' or model_type is 'large_caps':
-            # we don't use ALL n_hidden_units. Here, choose which ones to use.
-            chosen_n_units = range(1, n_hidden_units_max + 1)
-        elif model_type is 'large_conv':
-            chosen_n_units = range(1, bottleneck_features_max + 1)
-        elif model_type is 'alexnet_layers_1_3' or model_type is 'alexnet_layers_1_5':
-            chosen_n_units = range(16, n_hidden_units_max + 1, 16)
-        else:
-            chosen_n_units = range(4, n_hidden_units_max + 1, 4)
-
         for n_hidden_units in chosen_n_units:
 
             print('\rCurrent model: ' + model_type + ' with ' + str(n_hidden_units) + ' hidden units.')
             ### LOGDIR  ###
             if in_cloud:
-                LOGDIR = 'gs://autoencoders-data/' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
+                LOGDIR = 'gs://autoencoders-data/' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1])+ '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
             else:
-                LOGDIR = './' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
+                LOGDIR = './' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1])+ '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
 
             # Create the estimator:
-            ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR}, model_dir=LOGDIR)
+            ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR, 'model_type': model_type}, model_dir=LOGDIR)
             train_spec = tf.estimator.TrainSpec(input_fn, max_steps=n_steps)
             eval_spec = tf.estimator.EvalSpec(input_fn, steps=eval_steps, throttle_secs=eval_throttle_secs)
 
             # Lets go!
             tf.estimator.train_and_evaluate(ae, train_spec, eval_spec)
-
-
-
 
 if do_analysis:
     import os, itertools, imageio
@@ -183,69 +64,21 @@ if do_analysis:
     from batchMaker import StimMaker
     tf.estimator.Estimator._validate_features_in_predict_input = lambda *args: None
 
+    if not os.path.exists(results_folder):
+        os.mkdir(results_folder)
+
     for model_type in models:
 
-        if model_type is 'dense':
-            n_hidden_units_max = 128
-        elif model_type is 'large_dense':
-            n_neurons1 = 50
-            n_neurons2 = 50
-            n_hidden_units_max = 128
-        elif model_type is 'conv':
-            conv_activation_function = tf.nn.elu
-            conv1_params = {"filters": 64,
-                            "kernel_size": 11,
-                            "strides": 1,
-                            "padding": "valid",
-                            "activation": conv_activation_function,
-                            }
-            conv2_params = {"filters": 64,
-                            "kernel_size": 10,
-                            "strides": 2,
-                            "padding": "valid",
-                            "activation": conv_activation_function,
-                            }
-            n_hidden_units_max = 128
-        elif model_type is 'large_conv':
-            # cf https://github.com/mchablani/deep-learning/blob/master/autoencoder/Convolutional_Autoencoder.ipynb
-            bottleneck_features_max = 8
-        elif model_type is 'caps' or model_type is 'large_caps':
-            # conv layers
-            activation_function = tf.nn.elu
-            conv1_params = {"filters": 64,
-                            "kernel_size": 11,
-                            "strides": 1,
-                            "padding": "valid",
-                            "activation": activation_function,
-                            }
-            # primary capsules
-            caps1_n_maps = 8  # number of capsules at level 1 of capsules
-            caps1_n_dims = 8  # number of dimension per capsule (note: 8*8=64 to have the same number of neurons as the convnet)
-            conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
-                                "kernel_size": 10,
-                                "strides": 2,
-                                "padding": "valid",
-                                "activation": activation_function,
-                                }
-            # output capsules
-            n_hidden_units_max = 10  # number of secondary capsules (note: 16*8=128 = Nbr of neurons than the convnet)
-            caps2_n_dims = 8  # of n dimensions
-            rba_rounds = 3
-            if model_type is 'large_caps':
-                n_neurons1 = 50
-                n_neurons2 = 50
-        elif model_type is 'VAE' or 'VAE_conv':
-            # cf. https://danijar.com/building-variational-auto-encoders-in-tensorflow/
-            # and https://colab.research.google.com/drive/1Wl78KHPzQ2Q253Rob5W1o0bd8nu9DZel#scrollTo=zaCO7S0-_KNn&forceEdit=true&offline=true&sandboxMode=true
-            # good explanation https://jaan.io/what-is-variational-autoencoder-vae-tutorial/
-            if model_type is 'VAE':
-                n_neurons1 = 50
-                n_neurons2 = 50
-            n_hidden_units_max = 128
-            beta = 1  # 1 -> no disentaglement >1 -> disentanglement
-        elif model_type is 'alexnet_layers_1_3' or model_type is 'alexnet_layers_1_5':
+        # we will do a loop over many diffent number of hidden units
+        if 'caps' in model_type:
+            n_hidden_units_max = 16  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
+            chosen_n_units = range(1, n_hidden_units_max + 1)
+        elif 'alexnet' in model_type:
             n_hidden_units_max = 512
-            zoom = 3
+            chosen_n_units = range(32, n_hidden_units_max + 1, 32)
+        else:
+            n_hidden_units_max = 64
+            chosen_n_units = range(4, n_hidden_units_max + 1, 4)
 
         ########################################################################################################################
         # Make or load dataset_test
@@ -255,7 +88,7 @@ if do_analysis:
         stim_maker = StimMaker(im_size, shape_size, bar_width)  # handles data generation
         n_matrices = 2 ** 14
 
-        if not os.path.exists('./dataset_test.npy'):
+        if not os.path.exists(npy_dataset_path_test):
             flat_matrices = np.array(list(itertools.product([0, 1], repeat=3 * 5)))
             matrices = np.reshape(flat_matrices, [-1, 3, 5])
             flat_matrices[:, 7] = 0
@@ -263,19 +96,18 @@ if do_analysis:
             matrices = np.reshape(unique_flat_matrices, [-1, 3, 5])
             matrices[:, 1, 2] = 0
 
-            dataset_test = np.zeros(
-                shape=(n_matrices, im_size[0], im_size[1], 1))  # need fourth dimension for tensorflow
+            dataset_test = np.zeros(shape=(n_matrices, im_size[0], im_size[1], 1))  # need fourth dimension for tensorflow
 
             for i in range(n_matrices):
                 dataset_test[i, :, :, :], _ = stim_maker.makeConfigBatch(batchSize=1, configMatrix=matrices[i, :, :] * (
                 other_shape_ID - 1) + 1, doVernier=False)
                 print("\rMaking dataset_test: {}/{} ({:.1f}%)".format(i, n_matrices, i * 100 / n_matrices), end="")
 
-            np.save('dataset_test.npy', dataset_test)
+            np.save(npy_dataset_path_test, dataset_test)
 
         else:
             print(' dataset_test.npy found -> loading')
-            dataset_test = np.load('./dataset_test.npy')
+            dataset_test = np.load(npy_dataset_path_test)
 
 
         # the following function makes tf.dataset_tests from numpy batches
@@ -294,16 +126,6 @@ if do_analysis:
             return feed_dict
 
 
-        # we will do a loop over many diffent number of hidden units
-        if model_type is 'caps' or model_type is 'large_caps':  # we don't use ALL n_hidden_units. Here, choose which ones to use.
-            chosen_n_units = range(1, n_hidden_units_max + 1)
-        elif model_type is 'large_conv':
-            chosen_n_units = range(1, bottleneck_features_max + 1)
-        elif model_type is 'alexnet_layers_1_3' or model_type is 'alexnet_layers_1_5':
-            chosen_n_units = range(16, n_hidden_units_max + 1, 16)
-        else:
-            chosen_n_units = range(8, n_hidden_units_max + 1, 4)
-
         ########################################################################################################################
         # Classify the reconstructed images from best to worst
         ########################################################################################################################
@@ -318,15 +140,12 @@ if do_analysis:
                 print('\rCurrent model: ' + model_type + ' with ' + str(n_hidden_units) + ' hidden units.')
                 ### LOGDIR  ###
                 if in_cloud:
-                    LOGDIR = 'gs://autoencoders-data/' + model_type + '/' + model_type + '_' + str(
-                        n_hidden_units) + '_hidden_units_logdir'
+                    LOGDIR = 'gs://autoencoders-data/' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1]) + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
                 else:
-                    LOGDIR = './' + model_type + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
+                    LOGDIR = './' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1]) + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir_imsz'
 
                 # Create the estimator:
-                ae = tf.estimator.Estimator(model_fn=model_fn,
-                                            params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR},
-                                            model_dir=LOGDIR)
+                ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR, 'model_type': model_type}, model_dir=LOGDIR)
 
                 # Get losses and reconstructed images for each stimulus
                 n_trials = 1
@@ -379,8 +198,7 @@ if do_analysis:
                     plt.axis("off")
                     plt.title('Rank: ' + str(n_matrices - index))
                     plt.subplot(2, n_samples, n_samples + index + 1)
-                    sample_image = final_reconstructions[final_losses_order[-(index + 1)], :, :, 0].reshape(im_size[0],
-                                                                                                            im_size[1])
+                    sample_image = final_reconstructions[final_losses_order[-(index + 1)], :, :, 0].reshape(im_size[0], im_size[1])
                     plt.imshow(sample_image, cmap="binary")
                     plt.axis("off")
                     plt.title('Avg. loss: ' + str(int(final_losses[final_losses_order[-(index + 1)]])))

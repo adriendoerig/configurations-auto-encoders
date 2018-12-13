@@ -1,9 +1,9 @@
 from capsule_functions import *
 from parameters import use_these_params
 if use_these_params:
-    from parameters import *
+    from parameters import im_size
 else:
-    from ae_master_all_models import *
+    from ae_master_all_models_params import im_size
 
 
 def model_fn(features, labels, mode, params):
@@ -16,7 +16,7 @@ def model_fn(features, labels, mode, params):
     x_image = tf.reshape(X, [-1, im_size[0], im_size[1], 1])
     tf.summary.image('input', x_image, 6)
 
-    if model_type is 'dense':
+    if params['model_type'] is 'dense':
         with tf.name_scope('dense_auto_encoder'):
             with tf.name_scope('neurons'):
                 X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
@@ -33,8 +33,12 @@ def model_fn(features, labels, mode, params):
                 loss = tf.reduce_sum(all_losses, name='total_loss')
                 tf.summary.scalar('loss', loss)
 
-    elif model_type is 'dense_large':
-        with tf.name_scope('dense_auto_encoder'):
+    elif params['model_type'] is 'large_dense':
+
+        n_neurons1 = 50
+        n_neurons2 = 50
+
+        with tf.name_scope('large_dense_auto_encoder'):
             with tf.name_scope('neurons'):
                 with tf.name_scope('encoder'):
                     X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
@@ -60,7 +64,20 @@ def model_fn(features, labels, mode, params):
                 loss = tf.reduce_sum(all_losses, name='total_loss')
                 tf.summary.scalar('loss', loss)
 
-    elif model_type is 'conv':
+    elif params['model_type'] is 'conv':
+        conv_activation_function = tf.nn.elu
+        conv1_params = {"filters": 64,
+                        "kernel_size": 11,
+                        "strides": 1,
+                        "padding": "valid",
+                        "activation": conv_activation_function,
+                        }
+        conv2_params = {"filters": 64,
+                        "kernel_size": 10,
+                        "strides": 2,
+                        "padding": "valid",
+                        "activation": conv_activation_function,
+                        }
         with tf.name_scope('conv_auto_encoder'):
             with tf.name_scope('neurons'):
                 conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
@@ -81,25 +98,31 @@ def model_fn(features, labels, mode, params):
                 loss = tf.reduce_sum(all_losses, name='total_loss')
                 tf.summary.scalar('loss', loss)
 
-    elif model_type is 'large_conv':
-        with tf.name_scope('caps_auto_encoder'):
+    elif params['model_type'] is 'large_conv':
+        # cf https://github.com/mchablani/deep-learning/blob/master/autoencoder/Convolutional_Autoencoder.ipynb
+        with tf.name_scope('large_conv_auto_encoder'):
             with tf.name_scope('neurons'):
                 with tf.name_scope('encoder'):
-                    conv1 = tf.layers.conv2d(inputs=X, filters=16, kernel_size=(5, 5), padding='same', activation=tf.nn.relu, name='conv1')  # Now 50x83x16
-                    maxpool1 = tf.layers.max_pooling2d(conv1, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool1')  # Now 25x42x16
-                    conv2 = tf.layers.conv2d(inputs=maxpool1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv2')  # Now 25x42x8
-                    maxpool2 = tf.layers.max_pooling2d(conv2, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool2')  # Now 13x21/4x8
-                    conv3 = tf.layers.conv2d(inputs=maxpool2, filters=params['bottleneck_units'], kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv3')  # Now 13x21xbottleneck_units
-                    encoded = tf.layers.max_pooling2d(conv3, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool3_encoded')  # Now 7x11xbottleneck_units
+                    # NOTE: the layer sizes marked below are for 32x52 input images
+                    conv1 = tf.layers.conv2d(inputs=X, filters=16, kernel_size=(5, 5), padding='same', activation=tf.nn.relu, name='conv1')  # Now 32x52x16
+                    maxpool1 = tf.layers.max_pooling2d(conv1, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool1')  # Now 16x26x16
+                    conv2 = tf.layers.conv2d(inputs=maxpool1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv2')  # Now 16x26x8
+                    maxpool2 = tf.layers.max_pooling2d(conv2, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool2')  # Now 8x13/4x8
+                    conv3 = tf.layers.conv2d(inputs=maxpool2, filters=params['bottleneck_units'], kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv3')  # Now 8x13xbottleneck_units
+                    maxpool3 = tf.layers.max_pooling2d(conv3, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool3')  # Now 4x7xbottleneck_units
                 with tf.name_scope('decoder'):
-                    upsample1 = tf.image.resize_images(encoded, size=(13, 21), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 13x21xbottleneck_units
-                    conv4 = tf.layers.conv2d(inputs=upsample1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv4')  # Now 13x21x8
-                    upsample2 = tf.image.resize_images(conv4, size=(25, 42), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 25x42x8
-                    conv5 = tf.layers.conv2d(inputs=upsample2, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv5')  # Now 25x42x8
-                    upsample3 = tf.image.resize_images(conv5, size=(50, 83), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 50x83x8
-                    conv6 = tf.layers.conv2d(inputs=upsample3, filters=16, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv6')  # Now 50x83x16
-                    logits = tf.layers.conv2d(inputs=conv6, filters=1, kernel_size=(3, 3), padding='same', activation=None, name='logits')  # Now 50x83x1
-                    X_reconstructed = tf.nn.sigmoid(logits, name='X_reconstructed')  # Pass logits through sigmoid to get reconstructed image
+                    # NOTE: the layer sizes marked below are for 32x52 input images
+                    maxpool3_flat = tf.layers.flatten(maxpool3, name='maxpool3_flat')
+                    encoded = tf.layers.dense(maxpool3_flat, params['bottleneck_units'], name='encoded')
+                    upsampled_code = tf.layers.dense(encoded, 4 * 7 * params['bottleneck_units'], name='upsampled_code')  # (4,7) is the shape of the last maxpool(conv) layer in the encoder
+                    reshaped_upsampled_code = tf.reshape(upsampled_code, [-1, 4, 7, params['bottleneck_units']], name='reshaped_upsampled_code')
+                    upsample1 = tf.image.resize_images(reshaped_upsampled_code, size=(8, 13), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 8x13xbottleneck_units
+                    conv4 = tf.layers.conv2d(inputs=upsample1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv4')  # Now 8x13x8
+                    upsample2 = tf.image.resize_images(conv4, size=(16, 26), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 16x26x8
+                    conv5 = tf.layers.conv2d(inputs=upsample2, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv5')  # Now 16x26x8
+                    upsample3 = tf.image.resize_images(conv5, size=(32, 52), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 32x52x8
+                    conv6 = tf.layers.conv2d(inputs=upsample3, filters=16, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv6')  # Now 32x52x16
+                    X_reconstructed = tf.layers.conv2d(inputs=conv6, filters=1, kernel_size=(3, 3), padding='same', activation=None, name='logits')  # Now 32x52x1
                     X_reconstructed_image = tf.reshape(X_reconstructed, [-1, im_size[0], im_size[1], 1])
                     tf.summary.image('reconstruction', X_reconstructed_image, 6)
             with tf.name_scope('reconstruction_loss'):
@@ -110,22 +133,43 @@ def model_fn(features, labels, mode, params):
                 loss = tf.reduce_mean(all_losses, name='loss')
                 tf.summary.scalar('loss', loss)
 
-    elif model_type is 'caps' or model_type is 'large_caps':
+    elif params['model_type'] is 'caps' or params['model_type'] is 'large_caps':
+        # conv layers
+        activation_function = tf.nn.elu
+        conv1_params = {"filters": 64,
+                        "kernel_size": 11,
+                        "strides": 1,
+                        "padding": "valid",
+                        "activation": activation_function,
+                        }
+        # primary capsules
+        caps1_n_maps = 8  # number of capsules at level 1 of capsules
+        caps1_n_dims = 8  # number of dimension per capsule (note: 8*8=64 to have the same number of neurons as the convnet)
+        conv_caps_params = {"filters": caps1_n_maps * caps1_n_dims,
+                            "kernel_size": 10,
+                            "strides": 2,
+                            "padding": "valid",
+                            "activation": activation_function,
+                            }
+        # output capsules
+        caps2_n_dims = 4  # of n dimensions
+        rba_rounds = 3
+        if model_type is 'large_caps':
+            n_neurons1 = 50
+            n_neurons2 = 50
+
         with tf.name_scope('caps_auto_encoder'):
             with tf.name_scope('neurons'):
                 conv1 = tf.layers.conv2d(X, name="conv1", **conv1_params)
                 tf.summary.histogram('conv1', conv1)
                 conv1_width = int((im_size[0] - conv1_params["kernel_size"]) / conv1_params["strides"] + 1)
                 conv1_height = int((im_size[1] - conv1_params["kernel_size"]) / conv1_params["strides"] + 1)
-                caps1_n_caps = int((caps1_n_maps * int(
-                    (conv1_width - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1) *
-                                    int((conv1_height - conv_caps_params["kernel_size"]) / conv_caps_params[
-                                        "strides"] + 1)))
+                caps1_n_caps = int((caps1_n_maps * int((conv1_width - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1) *
+                                                   int((conv1_height - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1)))
                 caps1 = primary_caps_layer(conv1, caps1_n_caps, caps1_n_dims, **conv_caps_params)
-                caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, params['bottleneck_units'], caps2_n_dims,
-                                             rba_rounds)
+                caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, params['bottleneck_units'], caps2_n_dims, rba_rounds)
                 caps2_flat = tf.reshape(caps2, [-1, params['bottleneck_units'] * caps2_n_dims])
-                if model_type is 'large_caps':
+                if params['model_type'] is 'large_caps':
                     dense1 = tf.layers.dense(caps2_flat, n_neurons1, name='decoder_hidden1')
                     dense2 = tf.layers.dense(dense1, n_neurons2, name='decoder_hidden2')
                     X_reconstructed = tf.layers.dense(dense2, im_size[0] * im_size[1], name='reconstruction')
@@ -141,9 +185,20 @@ def model_fn(features, labels, mode, params):
                 loss = tf.reduce_sum(all_losses, name='total_loss')
                 tf.summary.scalar('loss', loss)
 
-    elif model_type is 'VAE':
+    elif params['model_type'] is 'VAE' or params['model_type'] is 'VAE_beta2':
         import tensorflow_probability as tfp
         tfd = tfp.distributions
+
+        # cf. https://danijar.com/building-variational-auto-encoders-in-tensorflow/
+        # and https://colab.research.google.com/drive/1Wl78KHPzQ2Q253Rob5W1o0bd8nu9DZel#scrollTo=zaCO7S0-_KNn&forceEdit=true&offline=true&sandboxMode=true
+        # good explanation https://jaan.io/what-is-variational-autoencoder-vae-tutorial/
+        n_neurons1 = 50
+        n_neurons2 = 50
+
+        if params['model_type'] is 'VAE':
+            beta = 1  # for disentangled representations: >1
+        elif params['model_type'] is 'VAE_beta2':
+            beta = 2
 
         def make_encoder(data, code_size):
             x = tf.layers.flatten(data, name='flatten')
@@ -186,18 +241,24 @@ def model_fn(features, labels, mode, params):
             X_reconstructed_image = make_decoder(code, [im_size[0], im_size[1], 1]).mean()
             tf.summary.image('reconstructions', X_reconstructed_image, 6)
 
-    elif model_type is 'VAE_conv':
+    elif params['model_type'] is 'VAE_conv' or params['model_type'] is 'VAE_conv_beta2':
         import tensorflow_probability as tfp
         tfd = tfp.distributions
 
+        if params['model_type'] is 'VAE_conv':
+            beta = 1  # for disentangled representations: >1
+        elif params['model_type'] is 'VAE_conv_beta2':
+            beta = 2
+
         def make_encoder(data, code_size):
-            conv1 = tf.layers.conv2d(inputs=data, filters=16, kernel_size=(5, 5), padding='same', activation=tf.nn.relu, name='conv1')  # Now 50x83x16
-            maxpool1 = tf.layers.max_pooling2d(conv1, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool1')  # Now 25x42x16
-            conv2 = tf.layers.conv2d(inputs=maxpool1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv2')  # Now 25x42x8
-            maxpool2 = tf.layers.max_pooling2d(conv2, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool2')  # Now 13x21/4x8
-            conv3 = tf.layers.conv2d(inputs=maxpool2, filters=params['bottleneck_units'], kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv3')  # Now 13x21xbottleneck_units
-            maxpool3 = tf.layers.max_pooling2d(conv3, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool3')  # Now 7x11xbottleneck_units
-            maxpool3_flat = tf.reshape(maxpool3, [-1, 7*11*params['bottleneck_units']])
+            # NOTE: the layer sizes marked below are for 32x52 input images
+            conv1 = tf.layers.conv2d(inputs=data, filters=16, kernel_size=(5, 5), padding='same', activation=tf.nn.relu, name='conv1')  # Now 32x52x16
+            maxpool1 = tf.layers.max_pooling2d(conv1, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool1')  # Now 16x26x16
+            conv2 = tf.layers.conv2d(inputs=maxpool1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv2')  # Now 16x26x8
+            maxpool2 = tf.layers.max_pooling2d(conv2, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool2')  # Now 8x13/4x8
+            conv3 = tf.layers.conv2d(inputs=maxpool2, filters=params['bottleneck_units'], kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv3')  # Now 8x13xbottleneck_units
+            maxpool3 = tf.layers.max_pooling2d(conv3, pool_size=(2, 2), strides=(2, 2), padding='same', name='pool3')  # Now 4x7xbottleneck_units
+            maxpool3_flat = tf.reshape(maxpool3, [-1, 4*7*params['bottleneck_units']])
             loc = tf.layers.dense(maxpool3_flat, code_size, name='encoded_mu')
             scale = tf.layers.dense(maxpool3_flat, code_size, tf.nn.softplus, name='encoded_sigma')
             return tfd.MultivariateNormalDiag(loc, scale)
@@ -208,15 +269,16 @@ def model_fn(features, labels, mode, params):
             return tfd.MultivariateNormalDiag(loc, scale, name='prior_distribution')
 
         def make_decoder(code):
-            upsampled_code = tf.layers.dense(code, 7*11*params['bottleneck_units'], name='upsampled_code')  # (7,11) is the shape of the last maxpool(conv) layer in the encoder
-            reshaped_upsampled_code = tf.reshape(upsampled_code, [-1, 7, 11, params['bottleneck_units']], name='reshaped_upsampled_code')
-            upsample1 = tf.image.resize_images(reshaped_upsampled_code, size=(13, 21), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 13x21xbottleneck_units
-            conv4 = tf.layers.conv2d(inputs=upsample1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv4')  # Now 13x21x8
-            upsample2 = tf.image.resize_images(conv4, size=(25, 42), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 25x42x8
-            conv5 = tf.layers.conv2d(inputs=upsample2, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv5')  # Now 25x42x8
-            upsample3 = tf.image.resize_images(conv5, size=(50, 83), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 50x83x8
-            conv6 = tf.layers.conv2d(inputs=upsample3, filters=16, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv6')  # Now 50x83x16
-            logits = tf.layers.conv2d(inputs=conv6, filters=1, kernel_size=(3, 3), padding='same', activation=None, name='logits')  # Now 50x83x1
+            # NOTE: the layer sizes marked below are for 32x52 input images
+            upsampled_code = tf.layers.dense(code, 4*7*params['bottleneck_units'], name='upsampled_code')  # (4,7) is the shape of the last maxpool(conv) layer in the encoder
+            reshaped_upsampled_code = tf.reshape(upsampled_code, [-1, 4, 7, params['bottleneck_units']], name='reshaped_upsampled_code')
+            upsample1 = tf.image.resize_images(reshaped_upsampled_code, size=(8, 13), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 8x13xbottleneck_units
+            conv4 = tf.layers.conv2d(inputs=upsample1, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv4')  # Now 8x13x8
+            upsample2 = tf.image.resize_images(conv4, size=(16, 26), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 16x26x8
+            conv5 = tf.layers.conv2d(inputs=upsample2, filters=8, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv5')  # Now 16x26x8
+            upsample3 = tf.image.resize_images(conv5, size=(32, 52), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 32x52x8
+            conv6 = tf.layers.conv2d(inputs=upsample3, filters=16, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv6')  # Now 32x52x16
+            logits = tf.layers.conv2d(inputs=conv6, filters=1, kernel_size=(3, 3), padding='same', activation=None, name='logits')  # Now 32x52x1
             return tfd.Independent(tfd.Bernoulli(logits), 3, name='decoded_distribution')
 
         make_encoder = tf.make_template('encoder', make_encoder)
@@ -238,8 +300,10 @@ def model_fn(features, labels, mode, params):
         with tf.name_scope('reconstructions'):
             X_reconstructed_image = make_decoder(code).mean()
             tf.summary.image('reconstructions', X_reconstructed_image, 6)
+            samples = make_decoder(prior.sample(6)).mean()
+            tf.summary.image('samples', samples, 6)
 
-    elif model_type is 'alexnet_layers_1_3' or model_type is 'alexnet_layers_1_5':
+    elif params['model_type'] is 'alexnet_layers_1_3' or params['model_type'] is 'alexnet_layers_1_5':
         # alexnet + weights comes from http://www.cs.toronto.edu/~guerzhoy/tf_alexnet/
 
         # pad image to alexnet size
@@ -248,9 +312,11 @@ def model_fn(features, labels, mode, params):
             paddings = [[0, m - s[i]] for (i, m) in enumerate(max_in_dims)]
             return tf.pad(t, paddings, 'CONSTANT', constant_values=constant_values)
         # Alexnet takes larger 227*227 images. we zoom into our dataset and pad with zeros until we get the right size
-        X_alexnet = pad_up_to(tf.image.resize_images(X, [im_size[0]*zoom, im_size[1]*zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True ), [227, 227, 1], 0)
+        zoom = 4
+        X_alexnet = pad_up_to(tf.image.resize_images(X, size=[im_size[0]*zoom, im_size[1]*zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True ), [batch_size, 227, 227, 1], 0)
         # we tile to have the 3 rgb channels expected by the model
-        X_alexnet = tf.tile(X_alexnet, [1, 1, 3])
+        X_alexnet = tf.tile(X_alexnet, [1, 1, 1, 3])
+        tf.summary.image('resized_images', X_alexnet, 6)
 
         net_data = np.load(open("bvlc_alexnet.npy", "rb"), encoding="latin1").item()
 
@@ -397,8 +463,8 @@ def model_fn(features, labels, mode, params):
                 padding = 'VALID'
                 maxpool5 = tf.nn.max_pool(conv5, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
 
-        with tf.name_scope('decoder'):
-            if model_type is 'alexnet_layers_1_3':
+        with tf.variable_scope('alexnet_decoder'):
+            if params['model_type'] is 'alexnet_layers_1_3':
                 conv3_flat = tf.layers.flatten(conv3, name='conv3_flat')
                 encoded = tf.layers.dense(conv3_flat, params['bottleneck_units'], name='encoded')
                 conv3_flatinv = tf.layers.dense(encoded, 13*13*384, name='conv3_flatinv')  # (13,13,384) is the shape of the conv3 layer in the encoder
@@ -409,30 +475,44 @@ def model_fn(features, labels, mode, params):
                 upsample2 = tf.image.resize_images(conv2inv, size=(57, 57), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 57x57x256
                 conv1inv = tf.layers.conv2d(inputs=upsample2, filters=3, kernel_size=(11, 11), padding='same', activation=tf.nn.relu, name='conv1inv')  # Now 57x57x3
                 upsample3 = tf.image.resize_images(conv1inv, size=(227, 227), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 227x227x3 counters the 4x4 strides in alexnet's conv1
-                conv1stridesinv = tf.layers.conv2d(inputs=upsample3, filters=3, kernel_size=(4, 4), padding='same', activation=tf.nn.relu, name='conv1stridesinv')  # Now 227x227x3
-                return conv1stridesinv
-            elif model_type is 'alexnet_layers_1_5':
+                X_reconstructed = tf.layers.conv2d(inputs=upsample3, filters=3, kernel_size=(4, 4), padding='same', activation=tf.nn.relu, name='conv1stridesinv')  # Now 227x227x3
+                X_reconstructed_image = X_reconstructed
+                tf.summary.image('reconstructions', X_reconstructed_image, 6)
+            elif params['model_type'] is 'alexnet_layers_1_5':
                 maxpool5_flat = tf.layers.flatten(maxpool5, name='conv3_flat')
                 encoded = tf.layers.dense(maxpool5_flat, params['bottleneck_units'], name='encoded')
-                upsample1 = tf.image.resize_images(encoded, size=(13, 13), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-                conv5_flatinv = tf.layers.dense(upsample1, 13 * 13 * 256, name='conv5_flatinv')  # (13,13,256) is the shape of the conv5 layer in the encoder
+                conv5_flatinv = tf.layers.dense(encoded, 13 * 13 * 256, name='conv5_flatinv')  # (13,13,256) is the shape of the conv5 layer in the encoder
                 reshaped_conv5_flatinv = tf.reshape(conv5_flatinv, [-1, 13, 13, 256], name='reshaped_conv5_flatinv')
                 conv5inv = tf.layers.conv2d(inputs=reshaped_conv5_flatinv, filters=384, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv5inv')  # Now 13x13x384 (like the conv4 layer)
                 conv4inv = tf.layers.conv2d(inputs=conv5inv, filters=384, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv4inv')  # Now 13x13x384 (like the conv3 layer)
                 conv3inv = tf.layers.conv2d(inputs=conv4inv, filters=256, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv3inv')  # Now 13x13x256 (like the maxpool2 layer)
-                upsample2 = tf.image.resize_images(conv3inv, size=(28, 28), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 28x28x384
-                conv2inv = tf.layers.conv2d(inputs=upsample2, filters=96, kernel_size=(5, 5), padding='same', activation=tf.nn.relu, name='conv2inv')  # Now 57x57x96 (like the conv1 layer)
-                upsample3 = tf.image.resize_images(conv2inv, size=(57, 57), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 57x57x256
-                conv1inv = tf.layers.conv2d(inputs=upsample3, filters=3, kernel_size=(11, 11), padding='same', activation=tf.nn.relu, name='conv1inv')  # Now 57x57x3
-                upsample4 = tf.image.resize_images(conv1inv, size=(227, 227), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 227x227x3 counters the 4x4 strides in alexnet's conv1
-                conv1stridesinv = tf.layers.conv2d(inputs=upsample4, filters=3, kernel_size=(4, 4), padding='same', activation=tf.nn.relu, name='conv1stridesinv')  # Now 227x227x3
-                return conv1stridesinv
+                upsample1 = tf.image.resize_images(conv3inv, size=(28, 28), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 28x28x384
+                conv2inv = tf.layers.conv2d(inputs=upsample1, filters=96, kernel_size=(5, 5), padding='same', activation=tf.nn.relu, name='conv2inv')  # Now 57x57x96 (like the conv1 layer)
+                upsample2 = tf.image.resize_images(conv2inv, size=(57, 57), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 57x57x256
+                conv1inv = tf.layers.conv2d(inputs=upsample2, filters=3, kernel_size=(11, 11), padding='same', activation=tf.nn.relu, name='conv1inv')  # Now 57x57x3
+                upsample3 = tf.image.resize_images(conv1inv, size=(227, 227), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 227x227x3 counters the 4x4 strides in alexnet's conv1
+                X_reconstructed = tf.layers.conv2d(inputs=upsample3, filters=3, kernel_size=(4, 4), padding='same', activation=tf.nn.relu, name='conv1stridesinv')  # Now 227x227x3
+                X_reconstructed_image = X_reconstructed
+                tf.summary.image('reconstructions', X_reconstructed_image, 6)
 
+        with tf.name_scope('reconstruction_loss'):
+            X_flat = tf.reshape(X_alexnet, [-1, 227 * 227 * 3], name='X_flat')
+            X_reconstructed_flat = tf.reshape(X_reconstructed, [-1, 227 * 227 * 3], name='X_reconstructed_flat')
+            all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed_flat, X_flat, name='square_diffs'), axis=1, name='losses_per_image')
+            loss = tf.reduce_mean(all_losses, name='loss')
+            tf.summary.scalar('loss', loss)
+
+    else:
+        raise ValueError('MODEL TYPE NOT RECOGNIZED.')
 
     # optimizer and and training operation
     with tf.name_scope('optimizer_and_training'):
         optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-        training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
+        if 'alexnet' in params['model_type']:
+            print('Using alexnet encoder: will not train encoder weights.')
+            training_op = optimizer.minimize(loss=loss, var_list=tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='alexnet_decoder'), global_step=tf.train.get_global_step(), name="training_op")
+        else:
+            training_op = optimizer.minimize(loss=loss, global_step=tf.train.get_global_step(), name="training_op")
 
     # write summaries during evaluation
     eval_summary_hook = tf.train.SummarySaverHook(save_steps=10000, output_dir=params['LOGDIR'] + '/eval', summary_op=tf.summary.merge_all())

@@ -2,7 +2,7 @@ import tensorflow as tf
 
 ### set to 1 if running in the cloud (will change data/saving path names accordingly) ###
 in_cloud = 0
-use_these_params = False
+use_these_params = False  # if false, use parameters in ae_master_all_models_params
 
 ### stimulus params ###
 im_size = (50, 83)                             # size of full image
