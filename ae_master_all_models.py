@@ -14,6 +14,7 @@ print('#########################################################################
 in_cloud = 0
 do_training = True
 do_analysis = True
+models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'large_caps', 'VAE', 'VAE_conv', 'alexnet_layer_1_3', 'alexnet_layer_1_5']
 
 ### stimulus params ###
 im_size = (32, 52)                             # size of full image
@@ -58,7 +59,7 @@ eval_throttle_secs = 100000  # number of seconds after which to evaluate model
 # 'conv_large' = 3 conv laywer + pooling, then a dense bottleneck, then 3 upscaling layer as a decoder (no real deconv)
 
 if do_training:
-    for model_type in ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'large_caps', 'VAE', 'VAE_conv', 'alexnet_layer_1_3', 'alexnet_layer_1_5']:
+    for model_type in models:
 
         if model_type is 'dense':
             n_hidden_units_max = 128
@@ -182,7 +183,7 @@ if do_analysis:
     from batchMaker import StimMaker
     tf.estimator.Estimator._validate_features_in_predict_input = lambda *args: None
 
-    for model_type in ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'large_caps', 'VAE', 'VAE_conv', 'alexnet_layer_1_3', 'alexnet_layer_1_5']:
+    for model_type in models:
 
         if model_type is 'dense':
             n_hidden_units_max = 128
