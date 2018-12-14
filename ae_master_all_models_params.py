@@ -1,11 +1,12 @@
 ### set to 1 if running in the cloud (will change data/saving path names accordingly) ###
 in_cloud = 0
-do_training = True
+do_training = 0
 do_analysis = True
 
 
 # see ae_model_fn.py for model details
-models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'large_caps', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
+# models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'large_caps', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
+models = ['alexnet_layers_1_3', 'alexnet_layers_1_5']
 
 ### stimulus params ###
 im_size = (32, 52)                             # size of full image

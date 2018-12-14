@@ -23,8 +23,8 @@ if do_training:
             n_hidden_units_max = 16  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
             chosen_n_units =  range(1, n_hidden_units_max + 1)
         elif 'alexnet' in model_type:
-            n_hidden_units_max = 512
-            chosen_n_units = range(32, n_hidden_units_max + 1, 32)
+            n_hidden_units_max = 32
+            chosen_n_units = range(2, n_hidden_units_max + 1, 2)
         else:
             n_hidden_units_max = 64
             chosen_n_units = range(4, n_hidden_units_max + 1, 4)
@@ -74,8 +74,8 @@ if do_analysis:
             n_hidden_units_max = 16  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
             chosen_n_units = range(1, n_hidden_units_max + 1)
         elif 'alexnet' in model_type:
-            n_hidden_units_max = 512
-            chosen_n_units = range(32, n_hidden_units_max + 1, 32)
+            n_hidden_units_max = 32
+            chosen_n_units = range(2, n_hidden_units_max + 1, 2)
         else:
             n_hidden_units_max = 64
             chosen_n_units = range(4, n_hidden_units_max + 1, 4)
@@ -151,7 +151,11 @@ if do_analysis:
                 n_trials = 1
                 n_batches = n_matrices // batch_size
                 final_losses = np.zeros(shape=(n_trials, n_matrices))
-                final_reconstructions = np.zeros(shape=(n_matrices, im_size[0], im_size[1], 1))
+                if 'alexnet' in model_type:
+                    final_reconstructions = np.zeros(shape=(n_matrices, 227, 227, 3))
+                else:
+                    final_reconstructions = np.zeros(shape=(n_matrices, im_size[0], im_size[1], 1))
+
                 for batch in range(n_batches):
                     print("\r..... {}/{} ({:.1f}%)".format(batch, n_batches, batch * 100 / n_batches), end="")
                     for trial in range(n_trials):
@@ -162,8 +166,7 @@ if do_analysis:
                         ae_out = list(ae.predict(input_fn=lambda: input_fn_pred(this_batch)))
                         final_losses[trial, batch * batch_size:batch * batch_size + batch_size] = [p["all_losses"] for p
                                                                                                    in ae_out]
-                    final_reconstructions[batch * batch_size:batch * batch_size + batch_size, :, :, :] = [
-                        p["reconstructions"] for p in ae_out]
+                    final_reconstructions[batch * batch_size:batch * batch_size + batch_size, :, :, :] = [p["reconstructions"] for p in ae_out]
                 final_losses = np.mean(final_losses, axis=0)
 
                 # get indices of the configurations from lowest to highest loss
