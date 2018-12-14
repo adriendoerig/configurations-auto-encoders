@@ -313,7 +313,7 @@ def model_fn(features, labels, mode, params):
             return tf.pad(t, paddings, 'CONSTANT', constant_values=constant_values)
         # Alexnet takes larger 227*227 images. we zoom into our dataset and pad with zeros until we get the right size
         zoom = 4
-        X_alexnet = pad_up_to(tf.image.resize_images(X, size=[im_size[0]*zoom, im_size[1]*zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True ), [batch_size, 227, 227, 1], 0)
+        X_alexnet = pad_up_to(tf.image.resize_images(X, size=[im_size[0]*zoom, im_size[1]*zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True), [batch_size, 227, 227, 1], 0)
         # we tile to have the 3 rgb channels expected by the model
         X_alexnet = tf.tile(X_alexnet, [1, 1, 1, 3])
         tf.summary.image('resized_images', X_alexnet, 6)

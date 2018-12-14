@@ -131,7 +131,7 @@ if do_analysis:
         ########################################################################################################################
 
 
-        if not os._exists('./results/' + model_type + '_final_losses_order_all.npy'):
+        if not os.path.exists(results_folder + '/' + model_type + '_final_losses_order_all.npy'):
 
             final_losses_order_all = np.zeros(shape=(len(chosen_n_units), n_matrices))
 
@@ -142,7 +142,7 @@ if do_analysis:
                 if in_cloud:
                     LOGDIR = 'gs://autoencoders-data/' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1]) + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
                 else:
-                    LOGDIR = './' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1]) + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir_imsz'
+                    LOGDIR = './' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1]) + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
 
                 # Create the estimator:
                 ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR, 'model_type': model_type}, model_dir=LOGDIR)
@@ -151,22 +151,13 @@ if do_analysis:
                 n_trials = 1
                 n_batches = n_matrices // batch_size
                 final_losses = np.zeros(shape=(n_trials, n_matrices))
-                if 'alexnet' in model_type:
-                    final_reconstructions = np.zeros(shape=(n_matrices, 227, 227, 3))
-                else:
-                    final_reconstructions = np.zeros(shape=(n_matrices, im_size[0], im_size[1], 1))
 
                 for batch in range(n_batches):
                     print("\r..... {}/{} ({:.1f}%)".format(batch, n_batches, batch * 100 / n_batches), end="")
                     for trial in range(n_trials):
-                        this_batch = dataset_test[batch * batch_size:batch * batch_size + batch_size, :, :,
-                                     :] + np.random.normal(0, late_noise, size=dataset_test[
-                                                                               batch * batch_size:batch * batch_size + batch_size,
-                                                                               :, :, :].shape)
+                        this_batch = dataset_test[batch * batch_size:batch * batch_size + batch_size, :, :, :] + np.random.normal(0, late_noise, size=dataset_test[ batch * batch_size:batch * batch_size + batch_size, :, :, :].shape)
                         ae_out = list(ae.predict(input_fn=lambda: input_fn_pred(this_batch)))
-                        final_losses[trial, batch * batch_size:batch * batch_size + batch_size] = [p["all_losses"] for p
-                                                                                                   in ae_out]
-                    final_reconstructions[batch * batch_size:batch * batch_size + batch_size, :, :, :] = [p["reconstructions"] for p in ae_out]
+                        final_losses[trial, batch * batch_size:batch * batch_size + batch_size] = [p["all_losses"] for p in ae_out]
                 final_losses = np.mean(final_losses, axis=0)
 
                 # get indices of the configurations from lowest to highest loss
@@ -183,8 +174,13 @@ if do_analysis:
                     plt.axis("off")
                     plt.title(('Rank: ' + str(index)))
                     plt.subplot(2, n_samples, n_samples + index + 1)
-                    sample_image = final_reconstructions[final_losses_order[index], :, :, 0].reshape(im_size[0],
-                                                                                                     im_size[1])
+                    ae_out = list(ae.predict(input_fn=lambda: input_fn_pred(dataset_test[final_losses_order[index:index+batch_size], :, :, :])))
+                    img = [p["reconstructions"] for p in ae_out]
+                    img = np.array(img)
+                    if 'alexnet' in model_type:
+                        sample_image = img[0, :, :, :].reshape(227, 227, 3)
+                    else:
+                        sample_image = img[0, :, :, :].reshape(im_size[0], im_size[1])
                     plt.imshow(sample_image, cmap="binary")
                     plt.axis("off")
                     plt.title('Avg. loss: ' + str(int(final_losses[final_losses_order[index]])))
@@ -195,13 +191,15 @@ if do_analysis:
                 plt.figure(figsize=(n_samples * 2, 3))
                 for index in range(n_samples):
                     plt.subplot(2, n_samples, index + 1)
-                    sample_image = dataset_test[final_losses_order[-(index + 1)], :, :, 0].reshape(im_size[0],
-                                                                                                   im_size[1])
+                    sample_image = dataset_test[final_losses_order[-(index + 1)], :, :, 0].reshape(im_size[0], im_size[1])
                     plt.imshow(sample_image, cmap="binary")
                     plt.axis("off")
                     plt.title('Rank: ' + str(n_matrices - index))
                     plt.subplot(2, n_samples, n_samples + index + 1)
-                    sample_image = final_reconstructions[final_losses_order[-(index + 1)], :, :, 0].reshape(im_size[0], im_size[1])
+                    if 'alexnet' in model_type:
+                        sample_image = img.reshape(227, 227, 3)
+                    else:
+                        sample_image = img.reshape(im_size[0], im_size[1])
                     plt.imshow(sample_image, cmap="binary")
                     plt.axis("off")
                     plt.title('Avg. loss: ' + str(int(final_losses[final_losses_order[-(index + 1)]])))
@@ -211,12 +209,12 @@ if do_analysis:
 
                 # save final results (a matrix with the order of best configurations for each network type - for example if a row is
                 # [2 0 1], it means that network 2 had the lowest loss, then net 0 and finally net 1). Analysis in analyse_results.py.
-            if not os.path.exists('./results'):
-                os.mkdir('./results')
-            np.save('./results/' + model_type + '_final_losses_order_all', final_losses_order_all)
+            if not os.path.exists(results_folder):
+                os.mkdir(results_folder)
+            np.save(results_folder + '/' + model_type + '_final_losses_order_all', final_losses_order_all)
 
         else:
-            final_losses_order_all = np.load('./results/' + model_type + '_final_losses_order_all')
+            final_losses_order_all = np.load(results_folder + '/' + model_type + '_final_losses_order_all')
 
         ########################################################################################################################
         # Make plots and gifs
@@ -247,7 +245,7 @@ if do_analysis:
         ax.set_xlabel('configuration IDs')
         ax.set_ylabel('Mean scores')
         plt.title('Current mean over networks 1 -> ' + str(chosen_n_units[-1]))
-        plt.savefig('./results/' + model_type + '_mean_scores.png')
+        plt.savefig(results_folder + '/' + model_type + '_mean_scores.png')
 
         # plot five best and five worst configs
         mean_score_order = mean_score.argsort()
@@ -264,7 +262,7 @@ if do_analysis:
             plt.imshow(sample_image, cmap="binary")
             plt.axis("off")
             plt.title('Worst configs - rank: (1=WORST): ' + str(index))
-        plt.savefig('./results/' + model_type + '_mean_scores_best_and_worst_configs.png')
+        plt.savefig(results_folder + '/' + model_type + '_mean_scores_best_and_worst_configs.png')
 
         # make a cool gif showing the evolution of mean_score as neurons are added to the hidden layer
         print('creating gif of results across networks')
@@ -292,4 +290,4 @@ if do_analysis:
         for i in range(1, len(chosen_n_units) + 1):
             print("\r{}/{} ({:.1f}%) ".format(i, len(chosen_n_units), i * 100 / len(chosen_n_units)), end="")
             imgs_for_gif.append(plot_for_offset(final_losses_order_all[:i, :]))
-        imageio.mimsave('./results/' + model_type + '_mean_scores_evolving.gif', imgs_for_gif, fps=2)
+        imageio.mimsave(results_folder + '/' + model_type + '_mean_scores_evolving.gif', imgs_for_gif, fps=2)
