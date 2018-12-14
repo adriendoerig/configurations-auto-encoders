@@ -50,7 +50,7 @@ if do_training:
                 LOGDIR = './' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1])+ '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
 
             # Create the estimator:
-            ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR, 'model_type': model_type}, model_dir=LOGDIR)
+            ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR, 'model_type': model_type, 'process_single_image': False}, model_dir=LOGDIR)
             train_spec = tf.estimator.TrainSpec(input_fn, max_steps=n_steps)
             eval_spec = tf.estimator.EvalSpec(input_fn, steps=eval_steps, throttle_secs=eval_throttle_secs)
 
@@ -145,7 +145,8 @@ if do_analysis:
                     LOGDIR = './' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1]) + '/' + model_type + '_' + str(n_hidden_units) + '_hidden_units_logdir'
 
                 # Create the estimator:
-                ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR, 'model_type': model_type}, model_dir=LOGDIR)
+                ae = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR, 'model_type': model_type, 'process_single_image': False}, model_dir=LOGDIR)
+                ae_single_img = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': n_hidden_units, 'LOGDIR': LOGDIR, 'model_type': model_type, 'process_single_image': True}, model_dir=LOGDIR)
 
                 # Get losses and reconstructed images for each stimulus
                 n_trials = 1
@@ -174,7 +175,7 @@ if do_analysis:
                     plt.axis("off")
                     plt.title(('Rank: ' + str(index)))
                     plt.subplot(2, n_samples, n_samples + index + 1)
-                    ae_out = list(ae.predict(input_fn=lambda: input_fn_pred(dataset_test[final_losses_order[index:index+batch_size], :, :, :])))
+                    ae_out = list(ae_single_img.predict(input_fn=lambda: input_fn_pred(tf.expand_dims(tf.cast(dataset_test[final_losses_order[index], :, :, :], tf.float32), axis=0))))
                     img = [p["reconstructions"] for p in ae_out]
                     img = np.array(img)
                     if 'alexnet' in model_type:
@@ -196,10 +197,13 @@ if do_analysis:
                     plt.axis("off")
                     plt.title('Rank: ' + str(n_matrices - index))
                     plt.subplot(2, n_samples, n_samples + index + 1)
+                    ae_out = list(ae_single_img.predict(input_fn=lambda: input_fn_pred(tf.expand_dims(tf.cast(dataset_test[final_losses_order[-(index+1)], :, :, :], tf.float32), axis=0))))
+                    img = [p["reconstructions"] for p in ae_out]
+                    img = np.array(img)
                     if 'alexnet' in model_type:
-                        sample_image = img.reshape(227, 227, 3)
+                        sample_image = img[0, :, :, :].reshape(227, 227, 3)
                     else:
-                        sample_image = img.reshape(im_size[0], im_size[1])
+                        sample_image = img[0, :, :, :].reshape(im_size[0], im_size[1])
                     plt.imshow(sample_image, cmap="binary")
                     plt.axis("off")
                     plt.title('Avg. loss: ' + str(int(final_losses[final_losses_order[-(index + 1)]])))
