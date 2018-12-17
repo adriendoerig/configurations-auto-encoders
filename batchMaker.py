@@ -139,7 +139,7 @@ class StimMaker:
 
         resizeFactor = 1.0
         patch  = np.zeros((self.shapeSize, self.shapeSize))
-        center = (int(self.shapeSize/2), int(self.shapeSize/2))
+        center = (int(self.shapeSize/2-1), int(self.shapeSize/2-1))
         radius = self.shapeSize/(2*resizeFactor)
 
         rowExtVertices = []
@@ -286,7 +286,7 @@ class StimMaker:
         if shapeID == 9:
             patch = self.drawStuff(5)
         if shapeID == 10:
-            patch = self.drawPolygon(6, 0)
+            patch = self.drawPolygon(4, np.pi/2)
 
         return patch
 
@@ -393,7 +393,7 @@ class StimMaker:
 
 if __name__ == "__main__":
 
-    other_shape_ID = 7  # there will be squares and this shape in the array
+    other_shape_ID = 10  # there will be squares and this shape in the array
     rufus = StimMaker((32, 52), 10, 1)
     stim_matrix = np.random.randint(2, size=(3, 5))*(other_shape_ID-1) + 1
     stim_matrix[1, 2] = 1

@@ -10,7 +10,7 @@ models = ['alexnet_layers_1_3', 'alexnet_layers_1_5']
 
 ### stimulus params ###
 im_size = (32, 52)                             # size of full image
-other_shape_ID = 7                              # there will be squares and this shape in the array
+other_shape_ID = 10                              # there will be squares and this shape in the array
 shape_size = 10                                 # size of a single shape in pixels
 random_size = False                             # shape_size will vary around shape_size
 random_pixels = 0                               # stimulus pixels are drawn from random.uniform(1-random_pixels,1+random_pixels). So use 0 for deterministic stimuli. see batchMaker.py

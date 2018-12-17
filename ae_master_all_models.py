@@ -218,7 +218,7 @@ if do_analysis:
             np.save(results_folder + '/' + model_type + '_final_losses_order_all', final_losses_order_all)
 
         else:
-            final_losses_order_all = np.load(results_folder + '/' + model_type + '_final_losses_order_all')
+            final_losses_order_all = np.load(results_folder + '/' + model_type + '_final_losses_order_all.npy')
 
         ########################################################################################################################
         # Make plots and gifs
@@ -233,17 +233,15 @@ if do_analysis:
         scores = np.zeros(shape=(final_losses_order_all.shape[0], n_matrices))
         for i in range(final_losses_order_all.shape[0]):
             for j in range(n_matrices):
-                scores[i:, j] += np.squeeze(
-                    np.tile(np.where(j == final_losses_order_all[i, :]), final_losses_order_all.shape[0] - i))
+                scores[i:, j] += np.squeeze(np.tile(np.where(j == final_losses_order_all[i, :]), final_losses_order_all.shape[0] - i))
             scores[i, :] /= i + 1
-        scores = n_matrices + 1 - scores  # originally, the best configs have low values. Switch this for better visualisation.
+        scores = n_matrices - scores  # originally, the best configs have low values. Switch this for better visualisation.
 
         print('creating graph for final results.')
-        mean_score = np.mean(final_losses_order_all, axis=0)
 
         ind = np.arange(n_matrices)
         fig, ax = plt.subplots()
-        ax.bar(ind, mean_score, color=(3. / 255, 57. / 255, 108. / 255))
+        ax.bar(ind, scores[-1, :], color=(3. / 255, 57. / 255, 108. / 255))
 
         # add some text for labels, title and axes ticks, and save figure
         ax.set_xlabel('configuration IDs')
@@ -252,20 +250,20 @@ if do_analysis:
         plt.savefig(results_folder + '/' + model_type + '_mean_scores.png')
 
         # plot five best and five worst configs
-        mean_score_order = mean_score.argsort()
+        mean_score_order = scores[-1, :].argsort()
         n_samples = 5
         plt.figure(figsize=(n_samples * 2, 3))
         for index in range(n_samples):
             plt.subplot(2, n_samples, index + 1)
+            sample_image = dataset_test[mean_score_order[-(index+1)], :, :, 0].reshape(im_size[0], im_size[1])
+            plt.imshow(sample_image, cmap="binary")
+            plt.axis("off")
+            plt.title('Best configs: (1=BEST): ' + str(index))
+            plt.subplot(2, n_samples, n_samples + index + 1)
             sample_image = dataset_test[mean_score_order[index], :, :, 0].reshape(im_size[0], im_size[1])
             plt.imshow(sample_image, cmap="binary")
             plt.axis("off")
-            plt.title('Best configs - rank: (1=BEST): ' + str(index))
-            plt.subplot(2, n_samples, n_samples + index + 1)
-            sample_image = dataset_test[mean_score_order[-(index + 1)], :, :, 0].reshape(im_size[0], im_size[1])
-            plt.imshow(sample_image, cmap="binary")
-            plt.axis("off")
-            plt.title('Worst configs - rank: (1=WORST): ' + str(index))
+            plt.title('Worst configs: (1=WORST): ' + str(index))
         plt.savefig(results_folder + '/' + model_type + '_mean_scores_best_and_worst_configs.png')
 
         # make a cool gif showing the evolution of mean_score as neurons are added to the hidden layer
@@ -273,16 +271,15 @@ if do_analysis:
         imgs_for_gif = []
 
 
-        def plot_for_offset(data):
+        def plot_for_offset(data, net_nr):
             plt.close('all')
-            mean_score = np.mean(data, axis=0)
             ind = np.arange(n_matrices)
             fig, ax = plt.subplots()
-            ax.bar(ind, mean_score, color=(3. / 255, 57. / 255, 108. / 255))
+            ax.bar(ind, data, color=(3. / 255, 57. / 255, 108. / 255))
             ax.set_xlabel('configuration IDs')
             ax.set_ylabel('Mean scores')
             ax.set_ylim(0, n_matrices)
-            plt.title('Current mean over networks 1 -> ' + str(data.shape[0]))
+            plt.title('Current mean over networks 1 -> ' + str(net_nr))
             # Used to return the plot as an image array
             fig.canvas.draw()  # draw the canvas, cache the renderer
             image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
@@ -291,7 +288,7 @@ if do_analysis:
 
 
         # make gif
-        for i in range(1, len(chosen_n_units) + 1):
+        for i in range(len(chosen_n_units)):
             print("\r{}/{} ({:.1f}%) ".format(i, len(chosen_n_units), i * 100 / len(chosen_n_units)), end="")
-            imgs_for_gif.append(plot_for_offset(final_losses_order_all[:i, :]))
+            imgs_for_gif.append(plot_for_offset(scores[i, :], i+1))
         imageio.mimsave(results_folder + '/' + model_type + '_mean_scores_evolving.gif', imgs_for_gif, fps=2)
