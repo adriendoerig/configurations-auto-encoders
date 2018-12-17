@@ -1,6 +1,6 @@
 ### set to 1 if running in the cloud (will change data/saving path names accordingly) ###
 in_cloud = 0
-do_training = 0
+do_training = 1
 do_analysis = True
 
 
