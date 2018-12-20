@@ -399,6 +399,7 @@ def show_n_best_and_worst_configs(X, im_size, n, model, gif_frame=False):
         ax2.plot(all_losses[all_losses_order])
         ax2.set_title('Loss curve for all stimuli')
         plt.axis('off')
+        plt.title('For latent dimensions = ' + str(gif_frame))
         fig.canvas.draw()  # draw the canvas, cache the renderer
         image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
         image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
@@ -490,7 +491,7 @@ def make_losses_and_scores_barplot(X, model, gif_frame=False):
         ax2.set_xlabel('configuration IDs')
         ax2.set_ylabel('Scores')
         ax2.set_ylim(0, n_configs)
-        plt.title('Current losses and scores for latent dimensions = ' + str(gif_frame))
+        plt.title('Losses and scores for latent dimensions = ' + str(gif_frame))
         # Used to return the plot as an image array
         fig.canvas.draw()  # draw the canvas, cache the renderer
         image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
@@ -517,11 +518,12 @@ def make_gif_from_frames(X, im_size, model, model_type, latent_dims, type, save_
         for i in range(len(latent_dims)):
             print("\r{}/{} ({:.1f}%) ".format(i, len(latent_dims), i * 100 / len(latent_dims)), end="")
             imgs_for_gif.append(make_losses_and_scores_barplot(X, model, gif_frame=latent_dims[i]))
-        imageio.mimsave(save_path + model_type + '_losses_and_scores_evolving.gif', imgs_for_gif, fps=2)
+        print('saving to ' + save_path + model_type + '_losses_and_scores_evolving.gif')
+        imageio.mimsave(save_path + model_type + '_losses_and_scores_evolving.gif', imgs_for_gif, fps=1)
 
     if type is 'configs_and_loss_curves':
         for i in range(len(latent_dims)):
             print("\r{}/{} ({:.1f}%) ".format(i, len(latent_dims), i * 100 / len(latent_dims)), end="")
             imgs_for_gif.append(show_n_best_and_worst_configs(X, im_size, 64, model, gif_frame=latent_dims[i]))
         print('saving to ' + save_path + model_type + '_best_worst_configs_evolving.gif')
-        imageio.mimsave(save_path + model_type + '_best_worst_configs_evolving.gif', imgs_for_gif, fps=2)
+        imageio.mimsave(save_path + model_type + '_best_worst_configs_evolving.gif', imgs_for_gif, fps=1)
