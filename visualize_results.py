@@ -13,7 +13,7 @@ import itertools
 model_type = 'VAE_beta2'
 latent_dim = 40
 n_squares_in_visualization_set = 9  # choose how many squares are in the displays. if None, all stimuli will be present
-LOGDIR = './' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1]) + '/' + model_type + '_' + str(latent_dim) + '_hidden_units_logdir'
+LOGDIR = './imsz_3252_diamonds/' + model_type + '_imsz_'+str(im_size[0])+str(im_size[1]) + '/' + model_type + '_' + str(latent_dim) + '_hidden_units_logdir'
 
 print('#######################################################')
 print('# CREATING VISUALIZATIONS FROM MODEL IN ' + LOGDIR + '.')
@@ -73,5 +73,5 @@ model = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': la
 # show_n_best_and_worst_configs(dataset_visualization, im_size, 64, model)
 # show_n_best_and_worst_configs_control(dataset_visualization, im_size, 64)
 # make_losses_and_scores_barplot(dataset_visualization, model)
-# make_gif_from_frames(dataset_visualization, im_size, model, model_type, [4,8], type='losses_and_scores', save_path='./')
-make_gif_from_frames(dataset_visualization, im_size, model, model_type, range(4,64+1,4), type='configs_and_loss_curves', save_path='./')
+make_gif_from_frames(dataset_visualization, im_size, model, model_type, range(4,64+1,4), type='losses_and_scores', save_path='./')
+# make_gif_from_frames(dataset_visualization, im_size, model, model_type, range(4,64+1,4), type='configs_and_loss_curves', save_path='./')

@@ -396,10 +396,10 @@ def show_n_best_and_worst_configs(X, im_size, n, model, gif_frame=False):
         fig, (ax1, ax2) = plt.subplots(2,1)
         ax1.imshow(best_result_image, cmap='binary_r')
         ax1.set_title('Best ' + str(n) + ' configs (read from left to right)')
+        plt.title('For latent dimensions = ' + str(gif_frame))
         ax2.plot(all_losses[all_losses_order])
         ax2.set_title('Loss curve for all stimuli')
         plt.axis('off')
-        plt.title('For latent dimensions = ' + str(gif_frame))
         fig.canvas.draw()  # draw the canvas, cache the renderer
         image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
         image = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
@@ -487,11 +487,11 @@ def make_losses_and_scores_barplot(X, model, gif_frame=False):
         ax1.set_xlabel('configuration IDs')
         ax1.set_ylabel('Losses')
         ax1.set_ylim(0, n_configs)
+        plt.title('Losses and scores for latent dimensions = ' + str(gif_frame))
         ax2.bar(ind, scores, color=(3. / 255, 57. / 255, 108. / 255))
         ax2.set_xlabel('configuration IDs')
         ax2.set_ylabel('Scores')
         ax2.set_ylim(0, n_configs)
-        plt.title('Losses and scores for latent dimensions = ' + str(gif_frame))
         # Used to return the plot as an image array
         fig.canvas.draw()  # draw the canvas, cache the renderer
         image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
