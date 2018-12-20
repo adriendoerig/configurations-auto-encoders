@@ -15,15 +15,21 @@ def model_fn(features, labels, mode, params):
     X = features['images']
     x_image = tf.reshape(X, [-1, im_size[0], im_size[1], 1])
     tf.summary.image('input', x_image, 6)
+    if len(features) == 2:
+        user_latent_input = features['user_latent_input']
+    else:
+        user_latent_input = None
 
     if params['model_type'] is 'dense':
         with tf.name_scope('dense_auto_encoder'):
             with tf.name_scope('neurons'):
                 X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
                 tf.summary.histogram('X_flat', X_flat)
-                hidden = tf.layers.dense(X_flat, params['bottleneck_units'], name='hidden_layer')
-                tf.summary.histogram('hidden_layer', hidden)
-                X_reconstructed = tf.layers.dense(hidden, im_size[0] * im_size[1], name='reconstruction')
+                encoded = tf.layers.dense(X_flat, params['bottleneck_units'], name='hidden_layer')
+                tf.summary.histogram('hidden_layer', encoded)
+                if user_latent_input is not None:
+                    encoded = user_latent_input
+                X_reconstructed = tf.layers.dense(encoded, im_size[0] * im_size[1], name='reconstruction')
                 tf.summary.histogram('X_reconstructed', X_reconstructed)
                 X_reconstructed_image = tf.reshape(X_reconstructed, [-1, im_size[0], im_size[1], 1])
                 tf.summary.image('reconstruction', X_reconstructed_image, 6)
@@ -49,6 +55,8 @@ def model_fn(features, labels, mode, params):
                     tf.summary.histogram('dense2', dense2)
                     encoded = tf.layers.dense(dense2, params['bottleneck_units'], name='encoded')
                     tf.summary.histogram('encoded', encoded)
+                    if user_latent_input is not None:
+                        encoded = user_latent_input
                 with tf.name_scope('decoder'):
                     dense3 = tf.layers.dense(encoded, n_neurons2, name='dense3')
                     tf.summary.histogram('dense3', dense3)
@@ -84,10 +92,12 @@ def model_fn(features, labels, mode, params):
                 tf.summary.histogram('conv1', conv1)
                 conv2 = tf.layers.conv2d(conv1, name="conv2", **conv2_params)
                 tf.summary.histogram('conv2', conv2)
-                conv2_flat = tf.reshape(conv2, [-1, int(np.prod(conv2.get_shape()[1:]))], name='conv2_flat')
-                dense = tf.layers.dense(conv2_flat, params['bottleneck_units'], name='dense_layer')
-                tf.summary.histogram('dense', dense)
-                X_reconstructed = tf.layers.dense(dense, im_size[0] * im_size[1], name='reconstruction')
+                conv3 = tf.reshape(conv2, [-1, int(np.prod(conv2.get_shape()[1:]))], name='conv2_flat')
+                encoded = tf.layers.dense(conv3, params['bottleneck_units'], name='dense_layer')
+                tf.summary.histogram('encoded', encoded)
+                if user_latent_input is not None:
+                    encoded = user_latent_input
+                X_reconstructed = tf.layers.dense(encoded, im_size[0] * im_size[1], name='reconstruction')
                 tf.summary.histogram('X_reconstructed', X_reconstructed)
                 X_reconstructed_image = tf.reshape(X_reconstructed, [-1, im_size[0], im_size[1], 1])
                 tf.summary.image('reconstruction', X_reconstructed_image, 6)
@@ -114,6 +124,8 @@ def model_fn(features, labels, mode, params):
                     # NOTE: the layer sizes marked below are for 32x52 input images
                     maxpool3_flat = tf.layers.flatten(maxpool3, name='maxpool3_flat')
                     encoded = tf.layers.dense(maxpool3_flat, params['bottleneck_units'], name='encoded')
+                    if user_latent_input is not None:
+                        encoded = user_latent_input
                     upsampled_code = tf.layers.dense(encoded, 4 * 7 * params['bottleneck_units'], name='upsampled_code')  # (4,7) is the shape of the last maxpool(conv) layer in the encoder
                     reshaped_upsampled_code = tf.reshape(upsampled_code, [-1, 4, 7, params['bottleneck_units']], name='reshaped_upsampled_code')
                     upsample1 = tf.image.resize_images(reshaped_upsampled_code, size=(8, 13), method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)  # Now 8x13xbottleneck_units
@@ -168,13 +180,15 @@ def model_fn(features, labels, mode, params):
                                                    int((conv1_height - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1)))
                 caps1 = primary_caps_layer(conv1, caps1_n_caps, caps1_n_dims, **conv_caps_params)
                 caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, params['bottleneck_units'], caps2_n_dims, rba_rounds)
-                caps2_flat = tf.reshape(caps2, [-1, params['bottleneck_units'] * caps2_n_dims])
+                encoded = tf.reshape(caps2, [-1, params['bottleneck_units'] * caps2_n_dims])
+                if user_latent_input is not None:
+                    encoded = user_latent_input
                 if params['model_type'] is 'large_caps':
-                    dense1 = tf.layers.dense(caps2_flat, n_neurons1, name='decoder_hidden1')
+                    dense1 = tf.layers.dense(encoded, n_neurons1, name='decoder_hidden1')
                     dense2 = tf.layers.dense(dense1, n_neurons2, name='decoder_hidden2')
                     X_reconstructed = tf.layers.dense(dense2, im_size[0] * im_size[1], name='reconstruction')
                 else:
-                    X_reconstructed = tf.layers.dense(caps2_flat, im_size[0] * im_size[1], name='reconstruction')
+                    X_reconstructed = tf.layers.dense(encoded, im_size[0] * im_size[1], name='reconstruction')
                 tf.summary.histogram('X_reconstructed', X_reconstructed)
                 X_reconstructed_image = tf.reshape(X_reconstructed, [-1, im_size[0], im_size[1], 1])
                 tf.summary.image('reconstruction', X_reconstructed_image, 6)
@@ -229,17 +243,21 @@ def model_fn(features, labels, mode, params):
             prior = make_prior(code_size=params['bottleneck_units'])
         with tf.name_scope('encoder'):
             posterior = make_encoder(X, code_size=params['bottleneck_units'])
-            code = posterior.sample()
+            encoded = posterior.sample()
+            if user_latent_input is not None:
+                encoded = user_latent_input
         # Define the loss.
         with tf.name_scope('loss'):
-            likelihood = make_decoder(code, [im_size[0], im_size[1], 1]).log_prob(X)
+            likelihood = make_decoder(encoded, [im_size[0], im_size[1], 1]).log_prob(X)
             divergence = tfd.kl_divergence(posterior, prior)
-            all_losses = likelihood - beta * divergence
-            loss = -tf.reduce_mean(all_losses)
+            all_losses = -(likelihood - beta * divergence)
+            loss = tf.reduce_mean(all_losses)
             tf.summary.scalar('loss', loss)
         with tf.name_scope('reconstructions'):
-            X_reconstructed_image = make_decoder(code, [im_size[0], im_size[1], 1]).mean()
+            X_reconstructed_image = make_decoder(encoded, [im_size[0], im_size[1], 1]).mean()
             tf.summary.image('reconstructions', X_reconstructed_image, 6)
+            samples = make_decoder(prior.sample(6), [im_size[0], im_size[1], 1]).mean()
+            tf.summary.image('samples', samples, 6)
 
     elif params['model_type'] is 'VAE_conv' or params['model_type'] is 'VAE_conv_beta2':
         import tensorflow_probability as tfp
@@ -289,16 +307,18 @@ def model_fn(features, labels, mode, params):
             prior = make_prior(code_size=params['bottleneck_units'])
         with tf.name_scope('encoder'):
             posterior = make_encoder(X, code_size=params['bottleneck_units'])
-            code = posterior.sample()
+            encoded = posterior.sample()
+            if user_latent_input is not None:
+                encoded = user_latent_input
         # Define the loss.
         with tf.name_scope('loss'):
-            likelihood = make_decoder(code).log_prob(X)
+            likelihood = make_decoder(encoded).log_prob(X)
             divergence = tfd.kl_divergence(posterior, prior)
             all_losses = -likelihood + beta * divergence
             loss = tf.reduce_mean(all_losses)
             tf.summary.scalar('loss', loss)
         with tf.name_scope('reconstructions'):
-            X_reconstructed_image = make_decoder(code).mean()
+            X_reconstructed_image = make_decoder(encoded).mean()
             tf.summary.image('reconstructions', X_reconstructed_image, 6)
             samples = make_decoder(prior.sample(6)).mean()
             tf.summary.image('samples', samples, 6)
@@ -470,6 +490,8 @@ def model_fn(features, labels, mode, params):
             if params['model_type'] is 'alexnet_layers_1_3':
                 conv3_flat = tf.layers.flatten(conv3, name='conv3_flat')
                 encoded = tf.layers.dense(conv3_flat, params['bottleneck_units'], name='encoded')
+                if user_latent_input is not None:
+                    encoded = user_latent_input
                 conv3_flatinv = tf.layers.dense(encoded, 13*13*384, name='conv3_flatinv')  # (13,13,384) is the shape of the conv3 layer in the encoder
                 reshaped_conv3_flatinv = tf.reshape(conv3_flatinv, [-1, 13, 13, 384], name='reshaped_upsampled_code')
                 conv3inv = tf.layers.conv2d(inputs=reshaped_conv3_flatinv, filters=256, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv3inv')  # Now 28x28x256 (like the conv2 layer)
@@ -484,6 +506,8 @@ def model_fn(features, labels, mode, params):
             elif params['model_type'] is 'alexnet_layers_1_5':
                 maxpool5_flat = tf.layers.flatten(maxpool5, name='conv3_flat')
                 encoded = tf.layers.dense(maxpool5_flat, params['bottleneck_units'], name='encoded')
+                if user_latent_input is not None:
+                    encoded = user_latent_input
                 conv5_flatinv = tf.layers.dense(encoded, 13 * 13 * 256, name='conv5_flatinv')  # (13,13,256) is the shape of the conv5 layer in the encoder
                 reshaped_conv5_flatinv = tf.reshape(conv5_flatinv, [-1, 13, 13, 256], name='reshaped_conv5_flatinv')
                 conv5inv = tf.layers.conv2d(inputs=reshaped_conv5_flatinv, filters=384, kernel_size=(3, 3), padding='same', activation=tf.nn.relu, name='conv5inv')  # Now 13x13x384 (like the conv4 layer)
@@ -523,7 +547,7 @@ def model_fn(features, labels, mode, params):
     # Wrap all of this in an EstimatorSpec.
     if mode == tf.estimator.ModeKeys.PREDICT:
         # the following line is
-        predictions = {'all_losses': all_losses, 'reconstructions': X_reconstructed_image}
+        predictions = {'all_losses': all_losses, 'reconstructions': X_reconstructed_image, 'encoded':encoded}
         spec = tf.estimator.EstimatorSpec(
             mode=mode,
             predictions=predictions)

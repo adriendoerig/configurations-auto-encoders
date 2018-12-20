@@ -3,17 +3,17 @@ import itertools
 from batchMaker import StimMaker
 from parameters import *
 
+n_squares = 9
+flat_matrices = np.array(list(itertools.product([0, 1], repeat=3 * 5)))
+matrices = np.reshape(flat_matrices, [-1, 3, 5])
+flat_matrices[:, 7] = 0
+# remove entries with the wrong number of squares
+row_sums = np.sum(flat_matrices, axis=1)
+flat_matrices = flat_matrices[row_sums==15-n_squares, :]
+unique_flat_matrices = np.unique(flat_matrices, axis=0)
+matrices = np.reshape(unique_flat_matrices, [-1, 3, 5])
+matrices[:, 1, 2] = 0
 
-final_losses_order_all = np.array([[0,1,2],
-                                   [1,0,2]])
-n_models = final_losses_order_all.shape[0]
-n_matrices = final_losses_order_all.shape[1]
-scores = np.zeros(shape=(n_models, n_matrices))
-for i in range(n_models):
-    for j in range(n_matrices):
-        scores[i:, j] += np.squeeze(np.tile(np.where(j == final_losses_order_all[i, :]), final_losses_order_all.shape[0] - i))
-    scores[i, :] /= i + 1
-scores = n_matrices - scores  # originally, the best configs have low values. Switch this for better visualisation.
 
-print(scores)
-print(np.mean(scores, axis=0))
+
+print(matrices)

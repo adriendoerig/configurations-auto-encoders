@@ -6,7 +6,8 @@ do_analysis = True
 
 # see ae_model_fn.py for model details
 # models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'large_caps', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
-models = ['alexnet_layers_1_3', 'alexnet_layers_1_5']
+models = ['VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2']
+# models = ['alexnet_layers_1_3', 'alexnet_layers_1_5']
 
 ### stimulus params ###
 im_size = (32, 52)                             # size of full image
@@ -36,6 +37,7 @@ if in_cloud:
 else:
     tfrecords_path_train = './dataset_train_imsz_'+str(im_size[0])+str(im_size[1])+'.tfrecords'
     npy_dataset_path_test = './dataset_test_imsz_'+str(im_size[0])+str(im_size[1])+'.npy'
+    npy_dataset_path_visualization = './dataset_visualization_imsz_'+str(im_size[0])+str(im_size[1])+'.npy'
     results_folder = './results_'+str(im_size[0])+str(im_size[1])
 
 learning_rate = .00005
