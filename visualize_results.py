@@ -97,7 +97,7 @@ for model_type in models:
 
         LOGDIR = './imsz_3252_diamonds/' + model_type + '_imsz_' + str(im_size[0]) + str(im_size[1]) + '/' + model_type + '_' + str(latent_dim) + '_hidden_units_logdir'
         # define the adequate model estimator (weights etc will be fetched from the LOGDIR)
-        model = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': latent_dim, 'LOGDIR': LOGDIR, 'model_type': model_type, 'process_single_image': False}, model_dir=LOGDIR)
+        model = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': latent_dim, 'LOGDIR': LOGDIR, 'model_type': model_type}, model_dir=LOGDIR)
 
         print('\n##############################################################################################################')
         print('# CREATING VISUALIZATIONS FROM MODEL IN ' + LOGDIR + '.')
@@ -122,7 +122,8 @@ for model_type in models:
         visualizeInterpolation(dataset_visualization[np.random.randint(0, dataset_visualization.shape[0])], dataset_visualization[np.random.randint(0, dataset_visualization.shape[0])], model, im_size, save_path=save_path)
         save_path = vis_path + '/arithmetics/' + model_type + '_latentdim_' + str(latent_dim) + '_'
         visualizeArithmetics(dataset_visualization[np.random.randint(0, dataset_visualization.shape[0])], dataset_visualization[np.random.randint(0,dataset_visualization.shape[0])], dataset_visualization[np.random.randint(0,dataset_visualization.shape[0])], model, im_size, save_path=save_path)
-        tensorboard_embeddings(dataset_visualization, im_size, latent_dim, model, vis_path+'/embeddings/'+model_type+'_'+str(latent_dim)+'_latent_dims')
+        save_path = vis_path+'/embeddings/'+model_type+'_'+str(latent_dim)+'_latent_dims'
+        tensorboard_embeddings(dataset_visualization, im_size, model, save_path)
         save_path = vis_path + '/best_worst/' + model_type + '_latentdim_' + str(latent_dim) + '_'
         show_n_best_and_worst_configs(dataset_visualization, im_size, 64, model, save_path=save_path)
         save_path = vis_path + '/losses_scores/' + model_type + '_latentdim_' + str(latent_dim) + '_'

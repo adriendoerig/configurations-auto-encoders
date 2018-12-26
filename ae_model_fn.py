@@ -12,10 +12,15 @@ def model_fn(features, labels, mode, params):
     X = features['images']
     x_image = tf.reshape(X, [-1, im_size[0], im_size[1], 1])
     tf.summary.image('input', x_image, 6)
-    if len(features) == 2:
+    if 'user_latent_input' in features:
         user_latent_input = features['user_latent_input']
     else:
         user_latent_input = None
+    if 'batch_sizes' in features:
+        batch_sizes = features['batch_sizes']
+        batch_size = batch_sizes[0]  # inelegant, but the input_fn must return a vector of batch sizes even if we only use one in the end.
+    else:
+        from parameters import batch_size
 
     if params['model_type'] is 'dense':
         with tf.name_scope('dense_auto_encoder'):
@@ -176,7 +181,7 @@ def model_fn(features, labels, mode, params):
                 caps1_n_caps = int((caps1_n_maps * int((conv1_width - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1) *
                                                    int((conv1_height - conv_caps_params["kernel_size"]) / conv_caps_params["strides"] + 1)))
                 caps1 = primary_caps_layer(conv1, caps1_n_caps, caps1_n_dims, **conv_caps_params)
-                caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, params['bottleneck_units'], caps2_n_dims, rba_rounds)
+                caps2 = secondary_caps_layer(caps1, caps1_n_caps, caps1_n_dims, params['bottleneck_units'], caps2_n_dims, rba_rounds, batch_size=batch_size)
                 encoded = tf.reshape(caps2, [-1, params['bottleneck_units'] * caps2_n_dims])
                 if user_latent_input is not None:
                     encoded = user_latent_input
@@ -191,8 +196,7 @@ def model_fn(features, labels, mode, params):
                 tf.summary.image('reconstruction', X_reconstructed_image, 6)
             with tf.name_scope('reconstruction_loss'):
                 X_flat = tf.reshape(X, [-1, im_size[0] * im_size[1]], name='X_flat')
-                all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed, X_flat, name='square_diffs'), axis=1,
-                                           name='losses_per_image')
+                all_losses = tf.reduce_sum(tf.squared_difference(X_reconstructed, X_flat, name='square_diffs'), axis=1, name='losses_per_image')
                 loss = tf.reduce_sum(all_losses, name='total_loss')
                 tf.summary.scalar('loss', loss)
 
@@ -330,10 +334,7 @@ def model_fn(features, labels, mode, params):
             return tf.pad(t, paddings, 'CONSTANT', constant_values=constant_values)
         # Alexnet takes larger 227*227 images. we zoom into our dataset and pad with zeros until we get the right size
         zoom = 4
-        if params['process_single_image']:
-            X_alexnet = pad_up_to(tf.image.resize_images(X, size=[im_size[0]*zoom, im_size[1]*zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True), [1, 227, 227, 1], 0)
-        else:
-            X_alexnet = pad_up_to(tf.image.resize_images(X, size=[im_size[0]*zoom, im_size[1]*zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True), [batch_size, 227, 227, 1], 0)
+        X_alexnet = pad_up_to(tf.image.resize_images(X, size=[im_size[0]*zoom, im_size[1]*zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True), [batch_size, 227, 227, 1], 0)
         # we tile to have the 3 rgb channels expected by the model
         X_alexnet = tf.tile(X_alexnet, [1, 1, 1, 3])
         tf.summary.image('resized_images', X_alexnet, 6)

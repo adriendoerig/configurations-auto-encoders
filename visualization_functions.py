@@ -7,6 +7,7 @@ import cv2, random, string, os, imageio
 from lapjv import lapjv
 from sklearn import manifold
 import matplotlib.pyplot as plt
+from ae_input_fn import input_fn_pred
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from tensorflow.python.keras.preprocessing import image
 from create_sprite import images_to_sprite
@@ -21,34 +22,6 @@ def visualizeDataset(X):
         cv2.destroyAllWindows()
 
 
-# the following function makes tf.dataset_tests from numpy batches. if latent_input is not None, also provides a latent input to decode from
-def input_fn_pred(batch, latent_input=None):
-    batch_size = batch.shape[0]
-    batch = tf.convert_to_tensor(batch, dtype=tf.float32)
-    if latent_input is None:
-        dataset_test = tf.data.Dataset.from_tensor_slices(batch)
-    else:
-        user_latent_input = tf.convert_to_tensor(latent_input, dtype=tf.float32)
-        dataset_test = tf.data.Dataset.from_tensor_slices((batch, user_latent_input))
-
-    dataset_test = dataset_test.batch(batch_size, drop_remainder=True)
-    # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
-    dataset_test = dataset_test.prefetch(2)
-    # Create an iterator for the dataset_test and the above modifications.
-    iterator = dataset_test.make_one_shot_iterator()
-
-    if latent_input is None:
-        # Get the next batch of images and labels.
-        images = iterator.get_next()
-        feed_dict = {'images': images}
-    else:
-        # Get the next batch of images and labels.
-        [images, user_latent_input] = iterator.get_next()
-        feed_dict = {'images': images,
-                     'user_latent_input': user_latent_input}
-    return feed_dict
-
-
 # Reconstructions for samples in dataset
 def getReconstructedImages(X, im_size, model):
     nbSamples = X.shape[0]
@@ -57,7 +30,7 @@ def getReconstructedImages(X, im_size, model):
     nbSquaresWidth = nbSquaresHeight
     resultImage = np.zeros((nbSquaresHeight * im_size[0], int(nbSquaresWidth * im_size[1] * (3 / 2) / 2), X.shape[-1]))
 
-    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X)))
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
     reconstructedX = np.array([p["reconstructions"] for p in model_out])
     differences = abs(X - reconstructedX)
 
@@ -120,7 +93,7 @@ def computeTSNEProjectionOfLatentSpace(X, im_size, model, save_path=None):
 
     # Compute latent space representation
     print("Computing latent space projection...")
-    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X)))
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
     X_encoded = np.array([p["encoded"] for p in model_out])
 
     # Compute t-SNE embedding of latent space
@@ -217,7 +190,7 @@ def visualizeInterpolation(start, end, model, im_size, nbSteps=5, save_path=None
     X = np.array([start, end])
 
     # Compute latent space projection
-    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X)))
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
     X_encoded = np.array([p["encoded"] for p in model_out])
     latentStart, latentEnd = X_encoded[0], X_encoded[1]
 
@@ -239,7 +212,7 @@ def visualizeInterpolation(start, end, model, im_size, nbSteps=5, save_path=None
     # Decode latent space vectors
     vectors = np.array(vectors)
     sham_inputs = np.zeros(shape=[vectors.shape[0], im_size[0], im_size[1], 1])  # the model still expects an input image. it is useless
-    model_out = list(model.predict(input_fn=lambda: input_fn_pred(sham_inputs, vectors)))
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(sham_inputs, latent_input=vectors, return_batch_size=True)))
     reconstructions = np.array([p["reconstructions"] for p in model_out])
 
     # Put final image together
@@ -281,7 +254,7 @@ def visualizeArithmetics(a, b, c, model, im_size, save_path=None):
     X = np.array([a, b, c])
 
     # Compute latent space projection
-    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X)))
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
     latentA, latentB, latentC = np.array([p["encoded"] for p in model_out])
 
     add = latentA + latentB
@@ -291,11 +264,9 @@ def visualizeArithmetics(a, b, c, model, im_size, save_path=None):
     latent_X = np.array([latentA, latentB, latentC, add, addSub])
 
     # Compute reconstruction
-    sham_inputs = np.zeros(
-        shape=[latent_X.shape[0], im_size[0], im_size[1], 1])  # the model still expects an input image. it is useless
-    model_out = list(model.predict(input_fn=lambda: input_fn_pred(sham_inputs, latent_X)))
-    reconstructedA, reconstructedB, reconstructedC, reconstructedAdd, reconstructedAddSub = np.array(
-        [p["reconstructions"] for p in model_out])
+    sham_inputs = np.zeros(shape=[latent_X.shape[0], im_size[0], im_size[1], 1])  # the model still expects an input image. it is useless
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(sham_inputs, latent_input=latent_X, return_batch_size=True)))
+    reconstructedA, reconstructedB, reconstructedC, reconstructedAdd, reconstructedAddSub = np.array([p["reconstructions"] for p in model_out])
 
     zoom = 4
     reconstructedA = cv2.resize(reconstructedA, (zoom * im_size[1], zoom * im_size[0]))
@@ -317,7 +288,7 @@ def visualizeArithmetics(a, b, c, model, im_size, save_path=None):
         plt.savefig(save_path + 'arithmetics.png', dpi=320)
         plt.close()
 
-def tensorboard_embeddings(X, im_size, latent_dim, model, LOGDIR):
+def tensorboard_embeddings(X, im_size, model, LOGDIR):
 
     np.random.shuffle(X)
     tf.reset_default_graph()
@@ -327,8 +298,9 @@ def tensorboard_embeddings(X, im_size, latent_dim, model, LOGDIR):
 
     np.random.shuffle(X)
 
-    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X)))
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
     X_encoded = np.array([p["encoded"] for p in model_out])
+    latent_dim = X_encoded.shape[1]
 
     # create sprites (if they don't exist yet)
     if not os.path.exists(LOGDIR + '/sprites.png'):
@@ -416,7 +388,7 @@ def show_n_best_and_worst_configs(X, im_size, n, model, save_path=None, gif_fram
     sqrt_n = int(np.sqrt(n))
 
     # get losses
-    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X)))
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
     all_losses = np.array([p["all_losses"] for p in model_out])
     all_losses_order = all_losses.argsort()
 
@@ -523,7 +495,7 @@ def make_losses_and_scores_barplot(X, model, save_path=None, gif_frame=False):
     n_configs = X.shape[0]
 
     # get losses
-    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X)))
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
     all_losses = np.array([p["all_losses"] for p in model_out])
     all_losses_order = all_losses.argsort()
     scores = n_configs - all_losses_order  # originally, the best configs have low values. Switch this for better visualisation.

@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 from parameters import *
 
+
 # define the squash function (to apply to capsule vectors)
 # a safe-norm is implemented to avoid 0 norms because they
 # would fuck up the gradients etc.
@@ -12,6 +13,7 @@ def squash(s, axis=-1, epsilon=1e-7, name=None):
         squash_factor = squared_norm / (1. + squared_norm)
         unit_vector = s / safe_norm_squash
     return squash_factor * unit_vector
+
 
 # takes the first regular convolutional layers' output as input and creates the first capsules
 # returns the flattened output of the primary capsule layer (only works to feed to a FC caps layer)
@@ -26,7 +28,7 @@ def primary_caps_layer(conv_output, caps1_n_caps, caps1_n_dims, **conv_params):
 
 
 # takes a (flattened) primary capsule layer caps1 output as input and creates a new fully connected capsule layer caps2
-def secondary_caps_layer(caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims, rba_rounds=3):
+def secondary_caps_layer(caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps, caps2_n_dims, rba_rounds=3, batch_size=batch_size):
 
     with tf.name_scope('secondary_caps_layer'):
         # initialise weights

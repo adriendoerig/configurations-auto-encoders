@@ -63,6 +63,56 @@ def input_fn_train(filenames, buffer_size=2**15):
     return feed_dict
 
 
+# the following function makes tf.dataset_tests from numpy batches. if latent_input is not None, also provides a latent input to decode from
+def input_fn_pred(batch, latent_input=None, return_batch_size=False):
+
+    batch_size = batch.shape[0]
+    batch = tf.convert_to_tensor(batch, dtype=tf.float32)
+    if latent_input is None:
+        if return_batch_size:
+            batch_sizes = tf.convert_to_tensor(batch_size, dtype=tf.int64)
+            batch_sizes = tf.tile([batch_sizes], [batch_size])  # inelegant, but the input_fn must return a vector of batch sizes even if we only use one in the end.
+            dataset_test = tf.data.Dataset.from_tensor_slices((batch, batch_sizes))
+        else:
+            dataset_test = tf.data.Dataset.from_tensor_slices(batch)
+    else:
+        if return_batch_size:
+            batch_sizes = tf.convert_to_tensor(batch_size, dtype=tf.int64)
+            batch_sizes = tf.tile([batch_sizes], [batch_size])
+            user_latent_input = tf.convert_to_tensor(latent_input, dtype=tf.float32)
+            dataset_test = tf.data.Dataset.from_tensor_slices((batch, user_latent_input, batch_sizes))
+        else:
+            user_latent_input = tf.convert_to_tensor(latent_input, dtype=tf.float32)
+            dataset_test = tf.data.Dataset.from_tensor_slices((batch, user_latent_input))
+
+    dataset_test = dataset_test.batch(batch_size, drop_remainder=True)
+    # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
+    dataset_test = dataset_test.prefetch(2)
+    # Create an iterator for the dataset_test and the above modifications.
+    iterator = dataset_test.make_one_shot_iterator()
+
+    # Get the next batch of images and labels.
+    if latent_input is None:
+        if return_batch_size:
+            [images, batch_sizes] = iterator.get_next()
+            feed_dict = {'images': images,
+                         'batch_sizes': batch_sizes}
+        else:
+            images = iterator.get_next()
+            feed_dict = {'images': images}
+    else:
+        if return_batch_size:
+            [images, user_latent_input, batch_sizes] = iterator.get_next()
+            feed_dict = {'images': images,
+                         'user_latent_input': user_latent_input,
+                         'batch_sizes': batch_sizes}
+        else:
+            [images, user_latent_input] = iterator.get_next()
+            feed_dict = {'images': images,
+                         'user_latent_input': user_latent_input}
+    return feed_dict
+
+
 ##############################
 #   Final input functions:   #
 ##############################
