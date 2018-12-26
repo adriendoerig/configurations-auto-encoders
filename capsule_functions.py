@@ -31,9 +31,7 @@ def secondary_caps_layer(caps1_output, caps1_n_caps, caps1_n_dims, caps2_n_caps,
     with tf.name_scope('secondary_caps_layer'):
         # initialise weights
         init_sigma = 0.01  # stdev of weights
-        W_init = lambda: tf.random_normal(
-            shape=(1, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims),
-            stddev=init_sigma, dtype=tf.float32, name="W_init")
+        W_init = lambda: tf.random_normal(shape=(1, caps1_n_caps, caps2_n_caps, caps2_n_dims, caps1_n_dims), stddev=init_sigma, dtype=tf.float32, name="W_init")
         W = tf.Variable(W_init, dtype=tf.float32, name="W")
         W_tiled = tf.tile(W, [batch_size, 1, 1, 1, 1], name="W_tiled")
 

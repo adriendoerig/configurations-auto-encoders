@@ -7,9 +7,6 @@ else:
 
 
 def model_fn(features, labels, mode, params):
-    # images:   Our data
-    # mode:     Either TRAIN, EVAL, or PREDICT
-    # params:   Optional parameters; here not needed because of parameter-file
 
     # placeholder for input images
     X = features['images']
@@ -314,7 +311,7 @@ def model_fn(features, labels, mode, params):
         with tf.name_scope('loss'):
             likelihood = make_decoder(encoded).log_prob(X)
             divergence = tfd.kl_divergence(posterior, prior)
-            all_losses = -likelihood + beta * divergence
+            all_losses = -(likelihood - beta * divergence)
             loss = tf.reduce_mean(all_losses)
             tf.summary.scalar('loss', loss)
         with tf.name_scope('reconstructions'):
