@@ -23,36 +23,64 @@ def visualizeDataset(X):
 
 
 # Reconstructions for samples in dataset
-def getReconstructedImages(X, im_size, model):
+def getReconstructedImages(X, im_size, model, model_type):
+
     nbSamples = X.shape[0]
     nbSquares = int(np.sqrt(nbSamples))
     nbSquaresHeight = 2 * nbSquares
     nbSquaresWidth = nbSquaresHeight
-    resultImage = np.zeros((nbSquaresHeight * im_size[0], int(nbSquaresWidth * im_size[1] * (3 / 2) / 2), X.shape[-1]))
+    if 'alexnet' in model_type:
+        resultImage = np.zeros((nbSquaresHeight * 227, int(nbSquaresWidth * 227 * (3 / 2) / 2), 3))
+    else:
+        resultImage = np.zeros((nbSquaresHeight * im_size[0], int(nbSquaresWidth * im_size[1] * (3 / 2) / 2), X.shape[-1]))
 
     model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
     reconstructedX = np.array([p["reconstructions"] for p in model_out])
-    differences = abs(X - reconstructedX)
+
+    if 'alexnet' in model_type:
+        # pad image to alexnet size
+
+        def pad_up_to(t, max_in_dims, constant_values):
+            s = tf.shape(t)
+            paddings = [[0, m - s[i]] for (i, m) in enumerate(max_in_dims)]
+            return tf.pad(t, paddings, 'CONSTANT', constant_values=constant_values)
+
+        # Alexnet takes larger 227*227 images. we zoom into our dataset and pad with zeros until we get the right size
+        zoom = 4
+        batch_size = X.shape[0]
+        X_alexnet = pad_up_to(tf.image.resize_images(X, size=[im_size[0] * zoom, im_size[1] * zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True), [batch_size, 227, 227, 1], 0)
+        # we tile to have the 3 rgb channels expected by the model
+        X_alexnet = tf.tile(X_alexnet, [1, 1, 1, 3])
+        with tf.Session() as sess:
+            originals = X_alexnet.eval()
+        differences = abs(originals - reconstructedX)
+    else:
+        differences = abs(X - reconstructedX)
 
     for i in range(nbSamples):
-        original = X[i]
+        if 'alexnet' in model_type:
+            original = originals[i]
+        else:
+            original = X[i]
         reconstruction = reconstructedX[i]
         difference = differences[i]
         rowIndex = i % nbSquaresWidth
         columnIndex = (i - rowIndex) // nbSquaresHeight
-        resultImage[rowIndex * im_size[0]:(rowIndex + 1) * im_size[0],
-        columnIndex * 3 * im_size[1]:(columnIndex + 1) * 3 * im_size[1], :] = np.hstack([original, reconstruction, difference])
+        if 'alexnet' in model_type:
+            resultImage[rowIndex * 227:(rowIndex + 1) * 227, columnIndex * 3 * 227:(columnIndex + 1) * 3 * 227, :] = np.hstack([original, reconstruction, difference])
+        else:
+            resultImage[rowIndex * im_size[0]:(rowIndex + 1) * im_size[0], columnIndex * 3 * im_size[1]:(columnIndex + 1) * 3 * im_size[1], :] = np.hstack([original, reconstruction, difference])
 
     return resultImage
 
 
 # Reconstructions for samples in dataset
-def visualizeReconstructedImages(X, im_size, model, save_path=None):
+def visualizeReconstructedImages(X, im_size, model, model_type, save_path=None):
 
     np.random.shuffle(X)
 
     print("Generating image reconstructions...")
-    reconstruction = getReconstructedImages(X, im_size, model)
+    reconstruction = getReconstructedImages(X, im_size, model, model_type)
     result = np.hstack([reconstruction, np.zeros([reconstruction.shape[0], 5, reconstruction.shape[-1]])])
 
     plt.figure()
@@ -311,30 +339,28 @@ def tensorboard_embeddings(X, im_size, model, LOGDIR):
     X_in = tf.placeholder(tf.float32)
     X_encoded_in = tf.placeholder(tf.float32)
 
-    with tf.device('/cpu:0'):
+    # configure embedding visualizer
+    config = tf.contrib.tensorboard.plugins.projector.ProjectorConfig()
 
-        # configure embedding visualizer
-        config = tf.contrib.tensorboard.plugins.projector.ProjectorConfig()
+    # embeddings for the latent layer activations
+    embedding_input_latent = tf.cast(tf.reshape(X_encoded_in, [-1, latent_dim]), tf.float32)
+    embedding_size_latent = latent_dim
+    embedding_latent = tf.Variable(tf.zeros([X.shape[0], embedding_size_latent], dtype=tf.float32), name='latent_embedding')
+    assignment_latent = embedding_latent.assign(embedding_input_latent)
+    embedding_config_latent = config.embeddings.add()
+    embedding_config_latent.tensor_name = embedding_latent.name
+    embedding_config_latent.sprite.image_path = SPRITES
+    embedding_config_latent.sprite.single_image_dim.extend([max(im_size), max(im_size)])
 
-        # embeddings for the latent layer activations
-        embedding_input_latent = tf.cast(tf.reshape(X_encoded_in, [-1, latent_dim]), tf.float32)
-        embedding_size_latent = latent_dim
-        embedding_latent = tf.Variable(tf.zeros([X.shape[0], embedding_size_latent], dtype=tf.float32), name='latent_embedding')
-        assignment_latent = embedding_latent.assign(embedding_input_latent)
-        embedding_config_latent = config.embeddings.add()
-        embedding_config_latent.tensor_name = embedding_latent.name
-        embedding_config_latent.sprite.image_path = SPRITES
-        embedding_config_latent.sprite.single_image_dim.extend([max(im_size), max(im_size)])
+    with tf.Session() as sess:
+        saver = tf.train.Saver()
+        init = tf.global_variables_initializer()
+        init.run()
+        writer = tf.summary.FileWriter(LOGDIR, sess.graph)
+        tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
 
-        with tf.Session() as sess:
-            saver = tf.train.Saver()
-            init = tf.global_variables_initializer()
-            init.run()
-            writer = tf.summary.FileWriter(LOGDIR, sess.graph)
-            tf.contrib.tensorboard.plugins.projector.visualize_embeddings(writer, config)
-
-            sess.run(assignment_latent, feed_dict={X_in: X, X_encoded_in: X_encoded})  # only latent layer embeddings (faster)
-            saver.save(sess, LOGDIR + '/checkpoint.ckpt')
+        sess.run(assignment_latent, feed_dict={X_in: X, X_encoded_in: X_encoded})  # only latent layer embeddings (faster)
+        saver.save(sess, LOGDIR + '/checkpoint.ckpt')
 
 
 def tensorboard_pixelspace_embedding(X, im_size, LOGDIR):
@@ -432,7 +458,7 @@ def show_n_best_and_worst_configs(X, im_size, n, model, save_path=None, gif_fram
         plt.subplot(grid[1,:])
         plt.plot(all_losses[all_losses_order])
         plt.title('Loss curve for all stimuli')
-        plt.ylim(0, 150)
+        plt.ylim(0, 300)
         if save_path is None:
             plt.show()
             plt.close()
@@ -507,11 +533,11 @@ def make_losses_and_scores_barplot(X, model, save_path=None, gif_frame=False):
         ax1.bar(ind, all_losses, color=(3. / 255, 57. / 255, 108. / 255))
         ax1.set_xlabel('configuration IDs')
         ax1.set_ylabel('Losses')
-        ax1.set_ylim(0, n_configs)
+        ax1.set_ylim(0, 300)
         ax2.bar(ind, scores, color=(3. / 255, 57. / 255, 108. / 255))
         ax2.set_xlabel('configuration IDs')
         ax2.set_ylabel('Scores')
-        ax2.set_ylim(0, 150)
+        ax2.set_ylim(0, n_configs)
         # Used to return the plot as an image array
         fig.canvas.draw()  # draw the canvas, cache the renderer
         image = np.frombuffer(fig.canvas.tostring_rgb(), dtype='uint8')
@@ -520,7 +546,7 @@ def make_losses_and_scores_barplot(X, model, save_path=None, gif_frame=False):
     else:
         plt.subplot(1, 2, 1)
         plt.bar(ind, all_losses, color=(3. / 255, 57. / 255, 108. / 255))
-        plt.ylim(0, 150)
+        plt.ylim(0, 300)
         plt.xlabel('configuration IDs')
         plt.ylabel('Losses')
         plt.subplot(1, 2, 2)

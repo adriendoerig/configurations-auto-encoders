@@ -11,7 +11,7 @@ import itertools
 
 # model params
 # models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'large_caps', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
-models = ['caps', 'large_caps', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
+models = ['large_caps', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
 latent_dim = 40
 n_squares_in_visualization_set = 9  # choose how many squares are in the displays. if None, all stimuli will be present
 res_path = './results_' + str(im_size[0]) + str(im_size[1])
@@ -83,7 +83,7 @@ for model_type in models:
 
     # we will do a loop over many diffent number of hidden units
     if 'caps' in model_type:
-        n_hidden_units_max = 16  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
+        n_hidden_units_max = 10  # was 16 but it gave OOMs  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
         chosen_n_units = range(1, n_hidden_units_max + 1)
     elif 'alexnet' in model_type:
         n_hidden_units_max = 32
@@ -112,22 +112,30 @@ for model_type in models:
 
         plt.close('all')
 
-        save_path = vis_path + '/reconstructions/' + model_type + '_latentdim_' + str(latent_dim) + '_'
-        visualizeReconstructedImages(dataset_visualization[:64, :, :, :], im_size, model, save_path=save_path)
-        save_path = vis_path + '/latent_tsne/' + model_type + '_latentdim_' + str(latent_dim) + '_'
-        computeTSNEProjectionOfLatentSpace(dataset_visualization, im_size, model, save_path=save_path)
-        save_path = vis_path + '/tsne_grid/' + model_type + '_latentdim_' + str(latent_dim) + '_'
-        twoDimensionalTsneGrid(dataset_visualization[:int(np.floor(np.sqrt(dataset_visualization.shape[0]))**2),:,:,:], im_size, model, 1, int(np.floor(np.sqrt(dataset_visualization.shape[0]))), pixel_or_latent='latent', save_path=save_path)
-        save_path = vis_path + '/interpolations/' + model_type + '_latentdim_' + str(latent_dim) + '_'
-        visualizeInterpolation(dataset_visualization[np.random.randint(0, dataset_visualization.shape[0])], dataset_visualization[np.random.randint(0, dataset_visualization.shape[0])], model, im_size, save_path=save_path)
-        save_path = vis_path + '/arithmetics/' + model_type + '_latentdim_' + str(latent_dim) + '_'
-        visualizeArithmetics(dataset_visualization[np.random.randint(0, dataset_visualization.shape[0])], dataset_visualization[np.random.randint(0,dataset_visualization.shape[0])], dataset_visualization[np.random.randint(0,dataset_visualization.shape[0])], model, im_size, save_path=save_path)
-        save_path = vis_path+'/embeddings/'+model_type+'_'+str(latent_dim)+'_latent_dims'
-        tensorboard_embeddings(dataset_visualization, im_size, model, save_path)
-        save_path = vis_path + '/best_worst/' + model_type + '_latentdim_' + str(latent_dim) + '_'
-        show_n_best_and_worst_configs(dataset_visualization, im_size, 64, model, save_path=save_path)
-        save_path = vis_path + '/losses_scores/' + model_type + '_latentdim_' + str(latent_dim) + '_'
-        make_losses_and_scores_barplot(dataset_visualization, model, save_path=save_path)
+        # save_path = vis_path + '/reconstructions/' + model_type + '_latentdim_' + str(latent_dim) + '_'
+        # visualizeReconstructedImages(dataset_visualization[:64, :, :, :], im_size, model, model_type=model_type, save_path=save_path)
+        if 'alexnet' not in model_type:
+            # save_path = vis_path + '/latent_tsne/' + model_type + '_latentdim_' + str(latent_dim) + '_'
+            # computeTSNEProjectionOfLatentSpace(dataset_visualization, im_size, model, save_path=save_path)
+            # save_path = vis_path + '/tsne_grid/' + model_type + '_latentdim_' + str(latent_dim) + '_'
+            # twoDimensionalTsneGrid(dataset_visualization[:int(np.floor(np.sqrt(dataset_visualization.shape[0]))**2),:,:,:], im_size, model, 1, int(np.floor(np.sqrt(dataset_visualization.shape[0]))), pixel_or_latent='latent', save_path=save_path)
+            # save_path = vis_path + '/interpolations/' + model_type + '_latentdim_' + str(latent_dim) + '_'
+            # visualizeInterpolation(dataset_visualization[np.random.randint(0, dataset_visualization.shape[0])], dataset_visualization[np.random.randint(0, dataset_visualization.shape[0])], model, im_size, save_path=save_path)
+            # save_path = vis_path + '/arithmetics/' + model_type + '_latentdim_' + str(latent_dim) + '_'
+            # visualizeArithmetics(dataset_visualization[np.random.randint(0, dataset_visualization.shape[0])], dataset_visualization[np.random.randint(0,dataset_visualization.shape[0])], dataset_visualization[np.random.randint(0,dataset_visualization.shape[0])], model, im_size, save_path=save_path)
+            # save_path = vis_path + '/embeddings/' + model_type + '_' + str(latent_dim) + '_latent_dims'
+            # tensorboard_embeddings(dataset_visualization, im_size, model, save_path)
+            save_path = vis_path + '/best_worst/' + model_type + '_latentdim_' + str(latent_dim) + '_'
+            show_n_best_and_worst_configs(dataset_visualization, im_size, 64, model, save_path=save_path)
+            save_path = vis_path + '/losses_scores/' + model_type + '_latentdim_' + str(latent_dim) + '_'
+            make_losses_and_scores_barplot(dataset_visualization, model, save_path=save_path)
+        else:
+            # save_path = vis_path+'/embeddings/'+model_type+'_'+str(latent_dim)+'_latent_dims'
+            # tensorboard_embeddings(dataset_visualization[:1500], im_size, model, save_path)  # OOM error when doing entire dataset at once with alexnet
+            save_path = vis_path + '/best_worst/' + model_type + '_latentdim_' + str(latent_dim) + '_'
+            show_n_best_and_worst_configs(dataset_visualization[:1500], im_size, 64, model, save_path=save_path)
+            save_path = vis_path + '/losses_scores/' + model_type + '_latentdim_' + str(latent_dim) + '_'
+            make_losses_and_scores_barplot(dataset_visualization[:1500], model, save_path=save_path)
 
     # save_path = vis_path + '/gifs/' + model_type + str(latent_dim) + '_'
     # make_gif_from_frames(dataset_visualization, im_size, model, model_type, chosen_n_units, type='losses_and_scores', save_path=save_path)

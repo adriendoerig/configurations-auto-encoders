@@ -16,11 +16,14 @@ def model_fn(features, labels, mode, params):
         user_latent_input = features['user_latent_input']
     else:
         user_latent_input = None
-    if 'batch_sizes' in features:
+    if 'batch_sizes' in features:  # NOTE: i think this is stupid. the goal was to flexibly define batch_size online, but i don't think it works. it just uses always the same batch size as the first time the network is created... so always the batch_size defined in parameters (although I am not certain since, for example, the capsules embeddings indeed seems to have all the configurations and not just 64)
         batch_sizes = features['batch_sizes']
         batch_size = batch_sizes[0]  # inelegant, but the input_fn must return a vector of batch sizes even if we only use one in the end.
     else:
-        from parameters import batch_size
+        if use_these_params:
+            from parameters import batch_size
+        else:
+            from ae_master_all_models_params import batch_size
 
     if params['model_type'] is 'dense':
         with tf.name_scope('dense_auto_encoder'):
@@ -334,7 +337,12 @@ def model_fn(features, labels, mode, params):
             return tf.pad(t, paddings, 'CONSTANT', constant_values=constant_values)
         # Alexnet takes larger 227*227 images. we zoom into our dataset and pad with zeros until we get the right size
         zoom = 4
-        X_alexnet = pad_up_to(tf.image.resize_images(X, size=[im_size[0]*zoom, im_size[1]*zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True), [batch_size, 227, 227, 1], 0)
+        if 'batch_sizes' in features:
+            with tf.Session() as sess:
+                np_batch_size = batch_size.eval()
+        else:
+            np_batch_size = batch_size
+        X_alexnet = pad_up_to(tf.image.resize_images(X, size=[im_size[0]*zoom, im_size[1]*zoom], method=tf.image.ResizeMethod.BILINEAR, preserve_aspect_ratio=True), [np_batch_size, 227, 227, 1], 0)
         # we tile to have the 3 rgb channels expected by the model
         X_alexnet = tf.tile(X_alexnet, [1, 1, 1, 3])
         tf.summary.image('resized_images', X_alexnet, 6)
