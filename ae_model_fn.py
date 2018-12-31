@@ -150,7 +150,7 @@ def model_fn(features, labels, mode, params):
                 loss = tf.reduce_mean(all_losses, name='loss')
                 tf.summary.scalar('loss', loss)
 
-    elif params['model_type'] is 'caps' or params['model_type'] is 'large_caps':
+    elif 'caps' in params['model_type']:
         # conv layers
         activation_function = tf.nn.elu
         conv1_params = {"filters": 64,
@@ -169,7 +169,11 @@ def model_fn(features, labels, mode, params):
                             "activation": activation_function,
                             }
         # output capsules
-        caps2_n_dims = 4  # of n dimensions
+        if '16_dims' in params['model_type']:
+            caps2_n_dims = 16
+        else:
+            caps2_n_dims = 4  # of n dimensions
+
         rba_rounds = 3
         if model_type is 'large_caps':
             n_neurons1 = 50

@@ -1,12 +1,12 @@
 ### set to 1 if running in the cloud (will change data/saving path names accordingly) ###
 in_cloud = 0
-do_training = 1
+do_training = 0
 do_analysis = True
 
 
 # see ae_model_fn.py for model details
-# models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'large_caps', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
-models = ['VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2']
+# models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'caps_16_dims', 'large_caps', 'large_caps_16_dims', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
+models = ['caps_16_dims', 'large_caps_16_dims']
 # models = ['alexnet_layers_1_3', 'alexnet_layers_1_5']
 
 ### stimulus params ###
@@ -37,7 +37,6 @@ if in_cloud:
 else:
     tfrecords_path_train = './dataset_train_imsz_'+str(im_size[0])+str(im_size[1])+'.tfrecords'
     npy_dataset_path_test = './dataset_test_imsz_'+str(im_size[0])+str(im_size[1])+'.npy'
-    npy_dataset_path_visualization = './dataset_visualization_imsz_'+str(im_size[0])+str(im_size[1])+'.npy'
     results_folder = './results_'+str(im_size[0])+str(im_size[1])
 
 learning_rate = .00005

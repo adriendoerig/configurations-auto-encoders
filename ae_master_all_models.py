@@ -21,7 +21,10 @@ if do_training:
 
         # we will do a loop over many diffent number of hidden units
         if 'caps' in model_type:
-            n_hidden_units_max = 16  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
+            if '16_dims' in model_type:
+                n_hidden_units_max = 4
+            else:
+                n_hidden_units_max = 16  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
             chosen_n_units =  range(1, n_hidden_units_max + 1)
         elif 'alexnet' in model_type:
             n_hidden_units_max = 32
@@ -72,7 +75,10 @@ if do_analysis:
 
         # we will do a loop over many diffent number of hidden units
         if 'caps' in model_type:
-            n_hidden_units_max = 16  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
+            if '16_dims' in model_type:
+                n_hidden_units_max = 4
+            else:
+                n_hidden_units_max = 16  # number of secondary capsules (note: 16*4=64 = Nbr of neurons in other nets)
             chosen_n_units = range(1, n_hidden_units_max + 1)
         elif 'alexnet' in model_type:
             n_hidden_units_max = 32
@@ -109,22 +115,6 @@ if do_analysis:
         else:
             print(' dataset_test.npy found -> loading')
             dataset_test = np.load(npy_dataset_path_test)
-
-
-        # the following function makes tf.dataset_tests from numpy batches
-        def input_fn_pred(batch):
-            batch_size = batch.shape[0]
-            batch = tf.convert_to_tensor(batch, dtype=tf.float32)
-            dataset_test = tf.data.Dataset.from_tensor_slices(batch)
-            dataset_test = dataset_test.batch(batch_size, drop_remainder=True)
-            # Use pipelining to speed up things (see https://www.youtube.com/watch?v=SxOsJPaxHME)
-            dataset_test = dataset_test.prefetch(2)
-            # Create an iterator for the dataset_test and the above modifications.
-            iterator = dataset_test.make_one_shot_iterator()
-            # Get the next batch of images and labels.
-            images = iterator.get_next()
-            feed_dict = {'images': images}
-            return feed_dict
 
 
         ########################################################################################################################

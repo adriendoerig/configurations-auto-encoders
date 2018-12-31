@@ -579,3 +579,82 @@ def make_gif_from_frames(X, im_size, model, model_type, latent_dims, type, save_
     #         imgs_for_gif.append(show_n_best_and_worst_configs(X, im_size, 64, model, gif_frame=latent_dims[i]))
     #     print('saving to ' + save_path + model_type + '_best_worst_configs_evolving.gif')
     #     imageio.mimsave(save_path + model_type + '_best_worst_configs_evolving.gif', imgs_for_gif, fps=1)
+
+
+def adjacent_squares_losses(X, matrices, model, save_path=None):
+
+    # first, count squares connected to the central one
+    def count_adjacent_squares(matrix):
+        return np.random.randint(1, 4)
+
+    adjacent_squares = np.zeros(shape=(matrices.shape[0],))
+    for idx in range(matrices.shape[0]):
+        adjacent_squares[idx] = count_adjacent_squares(matrices[idx])
+
+    # next, get losses for all matrices
+    model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
+    all_losses = np.array([p["all_losses"] for p in model_out])
+
+    # get average loss for each number of adjacent squares
+    max_adj = int(np.max(adjacent_squares))
+    pooled_losses = np.zeros(shape=(max_adj,))
+    std_losses = np.zeros(shape=(max_adj,))
+    for n in range(1, max_adj+1):
+        pooled_losses[n-1] = all_losses[np.where(adjacent_squares == n)].mean()
+        std_losses[n-1] = all_losses[np.where(adjacent_squares == n)].std()
+
+    ind = range(1, max_adj+1)
+    plt.figure()
+    plt.bar(ind, pooled_losses, yerr=std_losses, color=(3. / 255, 57. / 255, 108. / 255))
+    plt.xlabel('configuration IDs')
+    plt.ylabel('Scores')
+    if save_path is None:
+        plt.show()
+        plt.close()
+    else:
+        plt.savefig(save_path + 'adjacent_squares.png', dpi=320)
+        plt.close()
+
+
+def mean_losses_and_scores_over_latent_dims(X, model_type, latent_dim_list, im_size, save_path=None):
+    print('Making average losses & scores over latent_dims...')
+
+    n_configs = X.shape[0]
+    scores = None
+    losses = None
+
+    from ae_model_fn import model_fn
+
+    for latent_dim in latent_dim_list:
+
+        LOGDIR = './imsz_3252_diamonds/' + model_type + '_imsz_' + str(im_size[0]) + str(im_size[1]) + '/' + model_type + '_' + str(latent_dim) + '_hidden_units_logdir'
+        # define the adequate model estimator (weights etc will be fetched from the LOGDIR)
+        model = tf.estimator.Estimator(model_fn=model_fn, params={'bottleneck_units': latent_dim, 'LOGDIR': LOGDIR, 'model_type': model_type}, model_dir=LOGDIR)
+
+        # get losses and scores
+        model_out = list(model.predict(input_fn=lambda: input_fn_pred(X, return_batch_size=True)))
+        this_all_losses = np.array([p["all_losses"] for p in model_out])
+        this_all_losses_order = this_all_losses.argsort()
+        this_scores = n_configs - this_all_losses_order  # originally, the best configs have low values. Switch this for better visualisation.
+
+        losses = this_all_losses if losses is None else np.vstack([losses, this_all_losses])
+        scores = this_scores if scores is None else np.vstack([scores, this_scores])
+
+    losses = losses.mean(axis=0)
+    scores = scores.mean(axis=0)
+
+    ind = range(losses.shape[0])
+    plt.subplot(1, 2, 1)
+    plt.bar(ind, losses, color=(3. / 255, 57. / 255, 108. / 255))
+    plt.xlabel('configuration IDs')
+    plt.ylabel('Losses')
+    plt.subplot(1, 2, 2)
+    plt.bar(ind, scores, color=(3. / 255, 57. / 255, 108. / 255))
+    plt.xlabel('configuration IDs')
+    plt.ylabel('Scores')
+    if save_path is None:
+        plt.show()
+        plt.close()
+    else:
+        plt.savefig(save_path + 'losses_and_scores.png', dpi=320)
+        plt.close()
