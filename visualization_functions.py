@@ -584,8 +584,69 @@ def make_gif_from_frames(X, im_size, model, model_type, latent_dims, type, save_
 def adjacent_squares_losses(X, matrices, model, save_path=None):
 
     # first, count squares connected to the central one
+    # method: first, make a group list (identical connected shapes form a group)
+    # second, cound shapes in the target's group
     def count_adjacent_squares(matrix):
-        return np.random.randint(1, 4)
+
+        matrix_dims = matrix.shape
+        # Pad the stimulus, and initialize the group array
+        groupRng = 1
+        stim = np.pad(matrix, groupRng, 'constant', constant_values=0)
+        groupList = -1*np.ones(matrix_dims)
+        groupList = np.pad(groupList, groupRng, 'constant', constant_values=int(-1))
+
+        # Goes through all existing elements of the stimulus and forms the groups
+        for row in range(1, matrix_dims[0] + groupRng):
+            for col in range(1, matrix_dims[1] + groupRng):
+
+                # A new group is formed if the existing element does not belong to any group
+                if groupList[row, col] == -1:
+                    groupList[row, col] = np.max(groupList) + 1
+
+                # All possible neighbours that could group with the current element
+                shifts = list(range(1, groupRng + 1)[::-1]) + [-r for r in range(1, groupRng + 1)]
+                indexList = [(row + i, col) for i in shifts] + [(row, col + j) for j in shifts]
+                elemList = [stim[row + i, col] for i in shifts] + [stim[row, col + j] for j in shifts]
+
+                # Go through all identical neighbour elements
+                for index, elem in zip(indexList, elemList):
+                    if elem == stim[row, col]:
+
+                        # If a different element lies between the current and the neighbour element, no grouping
+                        check = True
+                        for r in range(min(row, index[0]) + 1, max(row, index[0])):
+                            if stim[r, col] == -stim[row, col]:
+                                check = False
+                        for c in range(min(col, index[1]) + 1, max(col, index[1])):
+                            if stim[row, c] == -stim[row, col]:
+                                check = False
+
+                        # Group only if allowed
+                        if check:
+
+                            # Probability to group decreases with distance (1 for distance = 1)
+                            alpha = 1.0
+                            distance = np.sqrt((row - index[0]) ** 2 + (col - index[1]) ** 2)
+                            groupProb = np.exp(1.0 - distance) / alpha
+
+                            # Deal with probability of grouping
+                            if np.random.uniform() < groupProb:
+
+                                # If the neighbour is not in a group, it joins the current one
+                                if groupList[index] == 0:
+                                    groupList[index] = groupList[row, col]
+
+                                # If it is already in a group, its entire group and the current group are merged
+                                if groupList[index] > 0:  # < groupList[row,col]:
+                                    groupList[groupList == groupList[row, col]] = groupList[index]
+
+        groupList = groupList[groupRng:-groupRng, groupRng:-groupRng].astype(int)
+
+        target_group = groupList[1,2]
+        adjacent_squares = len(groupList[groupList==target_group])
+
+        return adjacent_squares
+
 
     adjacent_squares = np.zeros(shape=(matrices.shape[0],))
     for idx in range(matrices.shape[0]):
@@ -606,7 +667,7 @@ def adjacent_squares_losses(X, matrices, model, save_path=None):
     ind = range(1, max_adj+1)
     plt.figure()
     plt.bar(ind, pooled_losses, yerr=std_losses, color=(3. / 255, 57. / 255, 108. / 255))
-    plt.xlabel('configuration IDs')
+    plt.xlabel('n connected squares')
     plt.ylabel('Scores')
     if save_path is None:
         plt.show()

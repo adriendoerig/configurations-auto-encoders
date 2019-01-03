@@ -6,7 +6,7 @@ do_analysis = True
 
 # see ae_model_fn.py for model details
 # models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'caps_16_dims', 'large_caps', 'large_caps_16_dims', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
-models = ['caps_16_dims', 'large_caps_16_dims']
+models = ['dense']
 # models = ['alexnet_layers_1_3', 'alexnet_layers_1_5']
 
 ### stimulus params ###
