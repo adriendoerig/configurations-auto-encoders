@@ -667,8 +667,8 @@ def adjacent_squares_losses(X, matrices, model, save_path=None):
     ind = range(1, max_adj+1)
     plt.figure()
     plt.bar(ind, pooled_losses, yerr=std_losses, color=(3. / 255, 57. / 255, 108. / 255))
-    plt.xlabel('n connected squares')
-    plt.ylabel('Scores')
+    plt.xlabel('N connected squares')
+    plt.ylabel('Losses')
     if save_path is None:
         plt.show()
         plt.close()

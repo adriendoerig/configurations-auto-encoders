@@ -13,7 +13,7 @@ import itertools
 # model params
 # models = ['dense', 'large_dense', 'conv', 'large_conv', 'caps', 'caps_16_dims', 'large_caps', 'large_caps_16_dims', 'VAE', 'VAE_beta2', 'VAE_conv', 'VAE_conv_beta2', 'alexnet_layers_1_3', 'alexnet_layers_1_5']
 models = ['dense']
-n_squares_in_visualization_set = 9  # choose how many squares are in the displays. if None, all stimuli will be present
+n_squares_in_visualization_set = None  # choose how many squares are in the displays. if None, all stimuli will be present
 res_path = './results_' + str(im_size[0]) + str(im_size[1])
 vis_path = res_path + '/visualizations_' + str(n_squares_in_visualization_set)
 npy_dataset_path_visualization = './dataset_visualization_imsz_'+str(im_size[0])+str(im_size[1])+'_'+str(n_squares_in_visualization_set)+'.npy'
